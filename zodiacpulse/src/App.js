@@ -63,7 +63,7 @@ function App() {
     setShowCard(false);
 
     const zodiacSign = String(sign).toLowerCase();
-    // Heroku Horoscope API and (updated) direct Zodiacal API (no /api/, no proxy)
+    // Heroku Horoscope API and direct Zodiacal API (updated, correct public endpoint without '/api/')
     const horoscopeEndpoint = `https://horoscope-api.herokuapp.com/horoscope/${dayVal}/${zodiacSign}`;
     const zodiacalEndpoint = `https://zodiacal.herokuapp.com/${zodiacSign}`;
 
@@ -71,73 +71,71 @@ function App() {
     let gotTraits = null;
 
     try {
-      // Fetch both APIs in parallel and add robust error handling
-      // Trait fetch: try-catch (for CORS/network), more user-friendly error messages
-      const [horoPromise, traitsPromise] = [
+      // Fetch APIs in parallel for speed, with robust error handling for each
+      const [horoResp, traitsResp] = await Promise.all([
         fetch(horoscopeEndpoint),
         fetch(zodiacalEndpoint)
-      ];
-      let horo, traitsRes, traitsArr;
-      try {
-        [horo, traitsRes] = await Promise.all([horoPromise, traitsPromise]);
-      } catch(fetchErr) {
-        // This means CORS error or network error; .catch on fetch()
-        throw new Error('A network or CORS error occurred when contacting external APIs. Please check your connection or try again later.');
+      ]);
+
+      // Error handling: Check response.ok before parsing
+      if (!horoResp.ok && !traitsResp.ok) {
+        throw new Error('Both external APIs failed to respond (status ' + horoResp.status + ' & ' + traitsResp.status + '). Please try again later.');
       }
-      if (!horo.ok && !traitsRes.ok)
-        throw new Error('Both APIs failed to respond correctly. Try again later.');
-      if (!horo.ok)
-        throw new Error('Horoscope API error: ' + horo.status + ' - Horoscope unavailable. Try again later.');
-      if (!traitsRes.ok) {
-        let codeMsg = traitsRes.status === 0
-            ? ' (Possible CORS/network issue)' : '';
-        throw new Error('Zodiacal API error: ' + traitsRes.status + codeMsg + '. Refresh or try later.');
+      if (!horoResp.ok) {
+        throw new Error(`Horoscope API error (status ${horoResp.status}): Unable to retrieve daily horoscope. Please try again later.`);
+      }
+      if (!traitsResp.ok) {
+        let codeMsg = traitsResp.status === 0 ? ' (Possible CORS/network issue)' : '';
+        throw new Error(`Zodiacal API error (status ${traitsResp.status})${codeMsg}: Unable to retrieve zodiac traits. Try refreshing or later.`);
       }
 
-      // Parse responses with error handling
+      // Try parsing JSON responses
       try {
-        gotHoroscope = await horo.json();
-      } catch (parseErr) {
-        throw new Error('Unable to decode Horoscope API response.');
+        gotHoroscope = await horoResp.json();
+      } catch (err) {
+        throw new Error('Failed to decode response from Horoscope API. The data may be malformed.');
       }
+      let traitsDataRaw;
       try {
-        traitsArr = await traitsRes.json();
-      } catch(traitsErr) {
-        throw new Error('Unable to decode Zodiacal API response. (Is CORS blocking? Try another browser.)');
+        traitsDataRaw = await traitsResp.json();
+      } catch (err) {
+        // CORS failures often land here if browsers show as 'opaque' responses
+        throw new Error('Unable to decode Zodiacal API response. This may be a CORS browser/network restriction. Try a different browser or check your network.');
       }
-      gotTraits = Array.isArray(traitsArr) ? traitsArr[0] : null;
+      gotTraits = Array.isArray(traitsDataRaw) ? traitsDataRaw[0] : (typeof traitsDataRaw === 'object' ? traitsDataRaw : null);
 
       setResult({
         description: gotHoroscope.horoscope || '',
         date: gotHoroscope.date,
         sign: gotHoroscope.sign,
-        mood: '',
-        lucky_number: '',
-        color: '',
-        compatibility: '',
-        lucky_time: ''
+        mood: gotHoroscope.mood || '',
+        lucky_number: gotHoroscope.lucky_number || '',
+        color: gotHoroscope.color || '',
+        compatibility: gotHoroscope.compatibility || '',
+        lucky_time: gotHoroscope.lucky_time || ''
       });
       setTraits(gotTraits);
       setShowCard(true);
 
     } catch (e) {
-      // User-friendly and robust error surface for CORS, network, and data errors
+      // Surface all typical error types to user in friendly UI text
       let msg = '';
       if (typeof e === "object" && e !== null && e.message && typeof e.message === "string") {
-        if (e.message.includes('Horoscope API error')) {
-          msg = e.message;
-        } else if (e.message.includes('Zodiacal API error')) {
+        if (e.message.includes('Horoscope API error') || e.message.includes('Zodiacal API error')) {
           msg = e.message;
         } else if (e.message.toLowerCase().includes('cors')) {
-          msg = 'A CORS error prevented access to data from Zodiacal. Try switching browsers or check browser/network settings.';
+          msg = 'A CORS (cross-origin) error prevented the app from accessing zodiac traits. Try using a different browser, or check your browser/network settings.';
         } else if (e.message.toLowerCase().includes('network')) {
-          msg = 'A network error prevented fetching astrology data. Please check your connection and refresh.';
+          msg = 'A network error occurred while fetching astrology data. Please check your internet connection or try again later.';
+        } else if (e.message.toLowerCase().includes('decode') || e.message.toLowerCase().includes('malformed')) {
+          msg = 'Received data in an unexpected format. The external API may be temporarily broken, or blocked by a firewall.';
         } else {
           msg = e.message || 'Unable to fetch astrology data. Please try again later.';
         }
       } else {
         msg = 'Unable to fetch astrology data. Please try again.';
       }
+
       setError(msg);
       setShowCard(false);
       setResult(null);
