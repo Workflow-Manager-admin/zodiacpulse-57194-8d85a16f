@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
 import './App.css';
 
+// NOTE: Begin analysis section for troubleshooting API fetch/render
+
+// Potential issues to check if API data is not being fetched or displayed:
+// 1. Event handler for form submission (handleSubmit) not firing, button disabled, or not set up
+// 2. fetchAPIs() implementation or its invocation (is it being called and with valid params?)
+// 3. API endpoint/requires proxy - check for downstream CORS/proxy issues
+// 4. State updates: is result/traits/showCard set correctly after fetch?
+// 5. Is the conditional rendering logic for the result card/placeholder correct?
+// 6. Is there an error being silently caught & only message shown?
+// 7. React key mappings - sync with migrated ZodiacPulseContainer logic
+
+// NOTE: To debug, carefully check onSubmit, button disabled logic, and if fields update as user interacts!
+
 // PUBLIC_INTERFACE
 function App() {
   // --- Begin ZodiacPulseContainer logic ---
