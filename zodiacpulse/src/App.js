@@ -3,7 +3,6 @@ import './App.css';
 
 function App() {
   // --- Begin ZodiacPulseContainer logic ---
-  // This version has all Aztro and CORS proxy code removed;
   // Only Heroku Horoscope API and direct Zodiacal API are used;
   // Improved error feedback for user.
 
