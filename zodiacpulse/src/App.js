@@ -56,19 +56,19 @@ function App() {
     return '';
   }
 
-  // PUBLIC_INTERFACE: Only uses Heroku + Zodiacal endpoints, robust error feedback, no aztro or cors-anywhere logic.
+  // PUBLIC_INTERFACE: Only uses Heroku Horoscope and direct Zodiacal endpoints. Removes all aztro and cors-anywhere logic.
   async function fetchAPIs(sign, dayVal) {
     setFetching(true);
     setError('');
     setShowCard(false);
 
     const zodiacSign = String(sign).toLowerCase();
+    // Heroku Horoscope API and direct Zodiacal API (no /api/, no proxy)
     const horoscopeEndpoint = `https://horoscope-api.herokuapp.com/horoscope/${dayVal}/${zodiacSign}`;
     const zodiacalEndpoint = `https://zodiacal.herokuapp.com/${zodiacSign}`;
 
     let gotHoroscope = null;
     let gotTraits = null;
-    let errorMsg = '';
 
     try {
       // Fetch both in parallel
@@ -100,9 +100,7 @@ function App() {
     } catch (e) {
       let msg = '';
       if (typeof e === "object" && e !== null && e.message && typeof e.message === "string") {
-        if (e.message.includes('CORS')) {
-          msg = 'CORS error: The API cannot be reached due to browser restrictions, please try again later or contact the developer.';
-        } else if (e.message.includes('API error')) {
+        if (e.message.includes('API error')) {
           msg = e.message + ' - Please try again later.';
         } else {
           msg = 'Unable to fetch astrology data. Please try again.';
