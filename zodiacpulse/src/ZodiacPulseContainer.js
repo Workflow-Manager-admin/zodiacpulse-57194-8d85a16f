@@ -15,7 +15,8 @@ function ZodiacPulseContainer() {
   const [day, setDay] = useState('today');
   const [zodiac, setZodiac] = useState('');
   const [fetching, setFetching] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(null); // For horoscope API
+  const [traits, setTraits] = useState(null); // For zodiacal API
   const [error, setError] = useState('');
   const [showCard, setShowCard] = useState(false);
 
@@ -61,32 +62,51 @@ function ZodiacPulseContainer() {
   }
 
   // PUBLIC_INTERFACE
-  async function fetchHoroscope(sign, dayVal) {
+  async function fetchAPIs(sign, dayVal) {
     /**
-     * Uses the CORS-anywhere proxy for Aztro API calls. 
-     * Note: This is for development and testing purposes only.
-     * The CORS proxy ('https://cors-anywhere.herokuapp.com/') is not suitable for production due to rate limits and potential availability issues.
-     * For production, use a server-side implementation.
+     * Calls Aztro API (via Heroku CORS proxy) and Zodiacal API using fetch, 
+     * and sets both the daily horoscope and extended personality traits in UI state.
      */
     setFetching(true);
     setError('');
     setShowCard(false);
+
+    // Heroku-enabled Aztro API (requires POST)
     const corsProxy = 'https://cors-anywhere.herokuapp.com/';
     const aztroEndpoint = 'https://aztro.sameerkumar.website/';
     const zodiacSign = String(sign).toLowerCase();
+
+    // Zodiacal API (free, GET, returns array)
+    const zodiacalEndpoint = `https://zodiacal.herokuapp.com/api/${zodiacSign}`;
+
+    let gotHoroscope = null;
+    let gotTraits = null;
+    let errorMsg = '';
+
     try {
-      const response = await fetch(
-        `${corsProxy}${aztroEndpoint}?sign=${zodiacSign}&day=${dayVal}`,
-        {
-          method: 'POST',
-        }
-      );
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      const data = await response.json();
-      setResult(data);
-      setShowCard(true); // Animate card display
-    } catch (err) {
-      setError('Unable to fetch horoscope. Please try again.');
+      // Trigger both fetches in parallel
+      const [horo, traitsRes] = await Promise.all([
+        fetch(`${corsProxy}${aztroEndpoint}?sign=${zodiacSign}&day=${dayVal}`, { method: 'POST' }),
+        fetch(zodiacalEndpoint)
+      ]);
+      if (!horo.ok) throw new Error('Horoscope API error: ' + horo.status);
+      if (!traitsRes.ok) throw new Error('Zodiacal API error: ' + traitsRes.status);
+
+      gotHoroscope = await horo.json();
+      // Zodiacal always returns [object], so we get [0]
+      const traitsArr = await traitsRes.json();
+      gotTraits = Array.isArray(traitsArr) ? traitsArr[0] : null;
+
+      setResult(gotHoroscope);
+      setTraits(gotTraits);
+      setShowCard(true);
+
+    } catch (e) {
+      errorMsg = 'Unable to fetch astrology data. Please try again.';
+      setError(errorMsg);
+      setShowCard(false);
+      setResult(null);
+      setTraits(null);
     } finally {
       setFetching(false);
     }
@@ -117,24 +137,39 @@ function ZodiacPulseContainer() {
       setError('Please enter a valid birth date.');
       return;
     }
-    fetchHoroscope(zodiac, day);
+    fetchAPIs(zodiac, day); // Updated: call both azto & zodiacal APIs
   }
 
   // Get meta for this sign
   const selectedMeta = zodiacMeta.find(z => z.name === zodiac);
 
-  // API Response fields: date_range, current_date, description, color, mood, compatibility, lucky_number, lucky_time
-  function renderHoroscope() {
-    if (!result || !selectedMeta) return null;
-    // Use mood emoji if mapped, fallback to sparkle
+  // API Response fields: date_range, current_date, description, color, mood, compatibility, lucky_number, lucky_time from aztro;
+  // plus traits, strengths, weaknesses, element, ruling planet, etc. from zodiacal.
+  // Card is visually split L/R, but now right also shows trait summary if available.
+  function renderUnifiedResultCard() {
+    if (!result || !selectedMeta || !showCard) return null;
     const moodStr = String(result.mood || '').toLowerCase();
     const moodEmoji = moodEmojis[moodStr] || '✨';
     const luckyColor = result.color || '#F4D35E';
-    // Fade in animation class
     const fadeClass = showCard ? 'zp-fade-in' : '';
+
+    // Zodiacal API additions (all in `traits`, may be null if fetch fails)
+    // Not always present: traits.strengths[], weaknesses[], element, planet, etc.
+    const t = traits || {}; // fallback empty
+    const st = (Array.isArray(t.strengths) && t.strengths.length) ? t.strengths.join(', ') : '';
+    const wk = (Array.isArray(t.weaknesses) && t.weaknesses.length) ? t.weaknesses.join(', ') : '';
+    const element = t.element ? t.element : null;
+    const planet = t.planet ? t.planet : null;
+    const keywords = t.keywords ? t.keywords.join(', ') : '';
+    const keywordsBlock = keywords ? (
+      <div style={{ marginTop: 7, color: '#ffe480be', fontSize: '.97em', fontFamily: 'Quicksand' }}>
+        <b>Keywords:</b> {keywords}
+      </div>
+    ) : null;
+
     return (
       <div className={`zp-horoscope-card ${fadeClass}`} tabIndex={0} aria-live="polite">
-        {/* Left: Zodiac, Mood, Lucky number/color, date, fact */}
+        {/* Left: Icon, Meta, Mood, Lucky, Range, Theme trait */}
         <div className="zp-horoscope-l">
           <img
             src={selectedMeta.icon}
@@ -183,12 +218,29 @@ function ZodiacPulseContainer() {
           </div>
           <span className="zp-zodiac-daterange">{selectedMeta.range}</span>
           <div className="zp-zodiac-fact" title="Zodiac Trait/Fact">🌙 {selectedMeta.trait}</div>
+          {element ? <div style={{color:'#a8e9e1', fontSize:'.95em'}}>Element: <b>{element}</b></div> : null}
+          {planet ? <div style={{color:'#a8e9e1', fontSize:'.95em'}}>Ruler: <b>{planet}</b></div> : null}
         </div>
-        {/* Right: Horoscope text, summary */}
+        {/* Right: Horoscope, strengths/weaknesses, details */}
         <div className="zp-horoscope-r">
           <div className="zp-horoscope-desc">
             {result.description}
           </div>
+          {t && (st || wk) ? (
+            <div>
+            {st &&
+              <div style={{ color: "#51ffed", marginBottom: ".4em", fontSize: ".97em" }}>
+                <b>Strengths:</b> {st}
+              </div>
+            }
+            {wk &&
+              <div style={{ color: "#fd7181", marginBottom: ".4em", fontSize: ".97em" }}>
+                <b>Weaknesses:</b> {wk}
+              </div>
+            }
+            </div>
+          ) : null}
+          {keywordsBlock}
           <div className="zp-horoscope-tidbit">
             <b>Lucky Time: </b>
             <span>{result.lucky_time}</span>
@@ -274,7 +326,7 @@ function ZodiacPulseContainer() {
             <div className="zodiacpulse-horoscope-placeholder" style={{ color: '#f582ae', fontWeight: 500 }}>
               <span role="img" aria-label="error" style={{ fontSize: 30 }}>⚠️</span> {error}
             </div>
-            : (showCard && result) ? renderHoroscope()
+            : (showCard && result) ? renderUnifiedResultCard()
             :
             <div className="zodiacpulse-horoscope-placeholder">
               <span role="img" aria-label="Constellation" style={{ fontSize: 28 }}>✨</span>

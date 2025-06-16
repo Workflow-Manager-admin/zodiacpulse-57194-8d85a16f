@@ -22,4 +22,34 @@ modules by path ./.ve/ 15.1 KiB
     ./.ve/EditorOverlay.css 2.25 KiB [built] [code generated]
     ./node_modules/css-loader/dist/cjs.js!./.ve/EditorOverlay.css 697 bytes [built] [code generated]
   ./.ve/EditorOverlay.jsx 1.58 KiB [built] [code generated]
-webpack 5.99.9 compiled successfully in 1340 ms
+webpack 5.99.9 compiled successfully in 1211 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.46 MiB
+  asset bundle.js 1.43 MiB [emitted] (name: main)
+  asset main.93894b81c8c1c8f22911.hot-update.js 30.2 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.93894b81c8c1c8f22911.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.46 MiB = bundle.js 1.43 MiB main.93894b81c8c1c8f22911.hot-update.js 30.2 KiB
+cached modules 1.27 MiB [cached] 44 modules
+runtime modules 27.5 KiB 14 modules
+./src/ZodiacPulseContainer.js 24.1 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 194 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.47 MiB
+  asset bundle.js 1.43 MiB [emitted] (name: main)
+  asset main.5e3a2befea4fe6114d6a.hot-update.js 33.8 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.5e3a2befea4fe6114d6a.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.47 MiB = bundle.js 1.43 MiB main.5e3a2befea4fe6114d6a.hot-update.js 33.8 KiB
+cached modules 1.27 MiB [cached] 44 modules
+runtime modules 27.5 KiB 14 modules
+./src/ZodiacPulseContainer.js 26.9 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 98 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.47 MiB
+  asset bundle.js 1.44 MiB [emitted] (name: main)
+  asset main.bda80adc4ea0ad3850be.hot-update.js 33.8 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.bda80adc4ea0ad3850be.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.47 MiB = bundle.js 1.44 MiB main.bda80adc4ea0ad3850be.hot-update.js 33.8 KiB
+cached modules 1.27 MiB [cached] 44 modules
+runtime modules 27.5 KiB 14 modules
+./src/ZodiacPulseContainer.js 27 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 91 ms
