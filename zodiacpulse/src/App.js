@@ -364,8 +364,30 @@ function App() {
           {/* Horoscope Result */}
           <section className="zodiacpulse-horoscope" aria-live="polite">
             {error ?
-              <div className="zodiacpulse-horoscope-placeholder" style={{ color: '#f582ae', fontWeight: 500 }}>
-                <span role="img" aria-label="error" style={{ fontSize: 30 }}>⚠️</span> {error}
+              <div
+                className="zodiacpulse-horoscope-placeholder"
+                style={{
+                  color: '#f582ae',
+                  fontWeight: 500,
+                  background: '#32142522',
+                  border: '2px solid #fd718155',
+                  borderRadius: '12px',
+                  padding: '17px 10px 17px 10px',
+                  maxWidth: 360,
+                  margin: '0 auto'
+                }}
+                role="alert"
+                aria-live="assertive"
+              >
+                <span role="img" aria-label="error" style={{ fontSize: 38, marginBottom: 3 }}>⚠️</span>
+                <span style={{ display: 'block', marginTop: 8 }}>
+                  {typeof error === "string" ? error :
+                    "We couldn't fetch your zodiac insights from the astrology API. This could be due to a connectivity issue, CORS restrictions, or the service was temporarily unavailable. Please check your connection, try a different browser, or refresh the page later."
+                  }
+                </span>
+                <span style={{ color: "#fd7181", marginTop: 10, fontSize: "1em", fontWeight: 400, display: 'block' }}>
+                  If this error keeps happening, try using a different device or revisit later—the service might be temporarily blocked or down.
+                </span>
               </div>
               : (showCard && result) ? renderUnifiedResultCard()
               :
