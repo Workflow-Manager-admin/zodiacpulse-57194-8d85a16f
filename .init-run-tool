@@ -1,0 +1,4 @@
+{
+    "command": "PORT=<port> BROWSER=none npm start",
+    "working_directory": "/home/kavia/workspace/code-generation/zodiacpulse-57194-8d85a16f/zodiacpulse"
+}
