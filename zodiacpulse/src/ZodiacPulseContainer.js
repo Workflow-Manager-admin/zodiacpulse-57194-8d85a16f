@@ -213,7 +213,7 @@ function ZodiacPulseContainer() {
             </span>
             <span>
               <b>Date: </b>
-              <span className="zp-horo-date">{result.current_date}</span>
+              <span className="zp-horo-date">{result.current_date || result.date}</span>
             </span>
           </div>
           <span className="zp-zodiac-daterange">{selectedMeta.range}</span>
