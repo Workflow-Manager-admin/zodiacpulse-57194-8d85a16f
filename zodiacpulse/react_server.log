@@ -33,3 +33,33 @@ cached modules 1.27 MiB [cached] 44 modules
 runtime modules 27.5 KiB 14 modules
 ./src/ZodiacPulseContainer.js 27 KiB [built] [code generated]
 webpack 5.99.9 compiled successfully in 196 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.45 MiB
+  asset bundle.js 1.42 MiB [emitted] (name: main)
+  asset main.00d1a93895565deafcb6.hot-update.js 32.4 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.00d1a93895565deafcb6.hot-update.json 163 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.45 MiB = bundle.js 1.42 MiB main.00d1a93895565deafcb6.hot-update.js 32.4 KiB
+cached modules 1.26 MiB [cached] 41 modules
+runtime modules 27.5 KiB 14 modules
+./src/App.js 25.6 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 141 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.42 MiB
+  asset bundle.js 1.42 MiB [emitted] (name: main)
+  asset main.7d453501947afc747adb.hot-update.js 5.01 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.7d453501947afc747adb.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.42 MiB = bundle.js 1.42 MiB main.7d453501947afc747adb.hot-update.js 5.01 KiB
+cached modules 1.28 MiB [cached] 41 modules
+runtime modules 27.5 KiB 14 modules
+./node_modules/css-loader/dist/cjs.js!./src/App.css 2.54 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 37 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.43 MiB
+  asset bundle.js 1.42 MiB [emitted] (name: main)
+  asset main.2cf4a6a988f785ddadae.hot-update.js 8.59 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.2cf4a6a988f785ddadae.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.43 MiB = bundle.js 1.42 MiB main.2cf4a6a988f785ddadae.hot-update.js 8.59 KiB
+cached modules 1.28 MiB [cached] 41 modules
+runtime modules 27.5 KiB 14 modules
+./node_modules/css-loader/dist/cjs.js!./src/App.css 5.96 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 30 ms
