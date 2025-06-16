@@ -62,14 +62,25 @@ function ZodiacPulseContainer() {
 
   // PUBLIC_INTERFACE
   async function fetchHoroscope(sign, dayVal) {
-    // Posts to Aztro API; no API key required, returns JSON
+    /**
+     * Uses the CORS-anywhere proxy for Aztro API calls. 
+     * Note: This is for development and testing purposes only.
+     * The CORS proxy ('https://cors-anywhere.herokuapp.com/') is not suitable for production due to rate limits and potential availability issues.
+     * For production, use a server-side implementation.
+     */
     setFetching(true);
     setError('');
     setShowCard(false);
+    const corsProxy = 'https://cors-anywhere.herokuapp.com/';
+    const aztroEndpoint = 'https://aztro.sameerkumar.website/';
+    const zodiacSign = String(sign).toLowerCase();
     try {
-      const response = await fetch(`https://aztro.sameerkumar.website/?sign=${sign}&day=${dayVal}`, {
-        method: 'POST'
-      });
+      const response = await fetch(
+        `${corsProxy}${aztroEndpoint}?sign=${zodiacSign}&day=${dayVal}`,
+        {
+          method: 'POST',
+        }
+      );
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       const data = await response.json();
       setResult(data);
