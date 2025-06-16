@@ -56,14 +56,14 @@ function App() {
     return '';
   }
 
-  // PUBLIC_INTERFACE: Only uses Heroku Horoscope and direct Zodiacal endpoints. Removes all aztro and cors-anywhere logic.
+  // PUBLIC_INTERFACE: Only uses Heroku Horoscope and public Zodiacal endpoint, with robust error handling and user-friendly error messages.
   async function fetchAPIs(sign, dayVal) {
     setFetching(true);
     setError('');
     setShowCard(false);
 
     const zodiacSign = String(sign).toLowerCase();
-    // Heroku Horoscope API and direct Zodiacal API (no /api/, no proxy)
+    // Heroku Horoscope API and (updated) direct Zodiacal API (no /api/, no proxy)
     const horoscopeEndpoint = `https://horoscope-api.herokuapp.com/horoscope/${dayVal}/${zodiacSign}`;
     const zodiacalEndpoint = `https://zodiacal.herokuapp.com/${zodiacSign}`;
 
@@ -71,17 +71,40 @@ function App() {
     let gotTraits = null;
 
     try {
-      // Fetch both in parallel
-      const [horo, traitsRes] = await Promise.all([
+      // Fetch both APIs in parallel and add robust error handling
+      // Trait fetch: try-catch (for CORS/network), more user-friendly error messages
+      const [horoPromise, traitsPromise] = [
         fetch(horoscopeEndpoint),
         fetch(zodiacalEndpoint)
-      ]);
-      if (!horo.ok && !traitsRes.ok) throw new Error('Both APIs failed.');
-      if (!horo.ok) throw new Error('Horoscope API error: ' + horo.status);
-      if (!traitsRes.ok) throw new Error('Zodiacal API error: ' + traitsRes.status);
+      ];
+      let horo, traitsRes, traitsArr;
+      try {
+        [horo, traitsRes] = await Promise.all([horoPromise, traitsPromise]);
+      } catch(fetchErr) {
+        // This means CORS error or network error; .catch on fetch()
+        throw new Error('A network or CORS error occurred when contacting external APIs. Please check your connection or try again later.');
+      }
+      if (!horo.ok && !traitsRes.ok)
+        throw new Error('Both APIs failed to respond correctly. Try again later.');
+      if (!horo.ok)
+        throw new Error('Horoscope API error: ' + horo.status + ' - Horoscope unavailable. Try again later.');
+      if (!traitsRes.ok) {
+        let codeMsg = traitsRes.status === 0
+            ? ' (Possible CORS/network issue)' : '';
+        throw new Error('Zodiacal API error: ' + traitsRes.status + codeMsg + '. Refresh or try later.');
+      }
 
-      gotHoroscope = await horo.json();
-      const traitsArr = await traitsRes.json();
+      // Parse responses with error handling
+      try {
+        gotHoroscope = await horo.json();
+      } catch (parseErr) {
+        throw new Error('Unable to decode Horoscope API response.');
+      }
+      try {
+        traitsArr = await traitsRes.json();
+      } catch(traitsErr) {
+        throw new Error('Unable to decode Zodiacal API response. (Is CORS blocking? Try another browser.)');
+      }
       gotTraits = Array.isArray(traitsArr) ? traitsArr[0] : null;
 
       setResult({
@@ -98,12 +121,19 @@ function App() {
       setShowCard(true);
 
     } catch (e) {
+      // User-friendly and robust error surface for CORS, network, and data errors
       let msg = '';
       if (typeof e === "object" && e !== null && e.message && typeof e.message === "string") {
-        if (e.message.includes('API error')) {
-          msg = e.message + ' - Please try again later.';
+        if (e.message.includes('Horoscope API error')) {
+          msg = e.message;
+        } else if (e.message.includes('Zodiacal API error')) {
+          msg = e.message;
+        } else if (e.message.toLowerCase().includes('cors')) {
+          msg = 'A CORS error prevented access to data from Zodiacal. Try switching browsers or check browser/network settings.';
+        } else if (e.message.toLowerCase().includes('network')) {
+          msg = 'A network error prevented fetching astrology data. Please check your connection and refresh.';
         } else {
-          msg = 'Unable to fetch astrology data. Please try again.';
+          msg = e.message || 'Unable to fetch astrology data. Please try again later.';
         }
       } else {
         msg = 'Unable to fetch astrology data. Please try again.';
