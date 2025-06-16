@@ -1,0 +1,1 @@
+{"is_source_file": true, "file_id": 16, "git_revision": "", "state": 1, "description": "", "external_files": [], "external_methods": [], "published": [], "classes": [], "methods": [], "calls": [], "search-terms": [], "hash": "1f8e8df72607294e01161c5114872d10", "format-version": 4, "code-base-name": "default", "filename": "zodiacpulse/README.md", "knowledge_revision": 16}
