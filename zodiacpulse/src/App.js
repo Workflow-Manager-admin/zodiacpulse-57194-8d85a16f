@@ -1,22 +1,11 @@
 import React, { useState } from 'react';
 import './App.css';
 
-// NOTE: Begin analysis section for troubleshooting API fetch/render
-
-// Potential issues to check if API data is not being fetched or displayed:
-// 1. Event handler for form submission (handleSubmit) not firing, button disabled, or not set up
-// 2. fetchAPIs() implementation or its invocation (is it being called and with valid params?)
-// 3. API endpoint/requires proxy - check for downstream CORS/proxy issues
-// 4. State updates: is result/traits/showCard set correctly after fetch?
-// 5. Is the conditional rendering logic for the result card/placeholder correct?
-// 6. Is there an error being silently caught & only message shown?
-// 7. React key mappings - sync with migrated ZodiacPulseContainer logic
-
-// NOTE: To debug, carefully check onSubmit, button disabled logic, and if fields update as user interacts!
-
-// PUBLIC_INTERFACE
 function App() {
   // --- Begin ZodiacPulseContainer logic ---
+  // This version has all Aztro and CORS proxy code removed;
+  // Only Heroku Horoscope API and direct Zodiacal API are used;
+  // Improved error feedback for user.
 
   const [birthDate, setBirthDate] = useState('');
   const [day, setDay] = useState('today');
@@ -68,20 +57,14 @@ function App() {
     return '';
   }
 
-  // PUBLIC_INTERFACE
+  // PUBLIC_INTERFACE: Only uses Heroku + Zodiacal endpoints, robust error feedback, no aztro or cors-anywhere logic.
   async function fetchAPIs(sign, dayVal) {
-    /**
-     * Calls supported Horoscope (Heroku) and Zodiacal API (no trailing /api/) using fetch,
-     * removing any legacy Aztro API and CORS proxy logic.
-     */
     setFetching(true);
     setError('');
     setShowCard(false);
 
     const zodiacSign = String(sign).toLowerCase();
-    // Heroku Horoscope API (GET)
     const horoscopeEndpoint = `https://horoscope-api.herokuapp.com/horoscope/${dayVal}/${zodiacSign}`;
-    // Zodiacal API (GET, returns array)
     const zodiacalEndpoint = `https://zodiacal.herokuapp.com/${zodiacSign}`;
 
     let gotHoroscope = null;
@@ -94,22 +77,18 @@ function App() {
         fetch(horoscopeEndpoint),
         fetch(zodiacalEndpoint)
       ]);
+      if (!horo.ok && !traitsRes.ok) throw new Error('Both APIs failed.');
       if (!horo.ok) throw new Error('Horoscope API error: ' + horo.status);
       if (!traitsRes.ok) throw new Error('Zodiacal API error: ' + traitsRes.status);
 
       gotHoroscope = await horo.json();
-      // Heroku horoscope returns an object: { date: "...", horoscope: "...", sign: "..." }
-      // Zodiacal always returns [object], so we get [0]
       const traitsArr = await traitsRes.json();
       gotTraits = Array.isArray(traitsArr) ? traitsArr[0] : null;
 
-      // Match output format for downstream rendering logic
-      // (fill `result` as if it were aztro-compatible)
       setResult({
         description: gotHoroscope.horoscope || '',
         date: gotHoroscope.date,
         sign: gotHoroscope.sign,
-        // Set other fields empty or plausible dummies, as the Heroku API doesn't return these
         mood: '',
         lucky_number: '',
         color: '',
@@ -120,8 +99,19 @@ function App() {
       setShowCard(true);
 
     } catch (e) {
-      errorMsg = 'Unable to fetch astrology data. Please try again.';
-      setError(errorMsg);
+      let msg = '';
+      if (typeof e === "object" && e !== null && e.message && typeof e.message === "string") {
+        if (e.message.includes('CORS')) {
+          msg = 'CORS error: The API cannot be reached due to browser restrictions, please try again later or contact the developer.';
+        } else if (e.message.includes('API error')) {
+          msg = e.message + ' - Please try again later.';
+        } else {
+          msg = 'Unable to fetch astrology data. Please try again.';
+        }
+      } else {
+        msg = 'Unable to fetch astrology data. Please try again.';
+      }
+      setError(msg);
       setShowCard(false);
       setResult(null);
       setTraits(null);
