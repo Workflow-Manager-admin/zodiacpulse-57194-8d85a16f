@@ -71,40 +71,51 @@ function App() {
   // PUBLIC_INTERFACE
   async function fetchAPIs(sign, dayVal) {
     /**
-     * Calls Aztro API (via Heroku CORS proxy) and Zodiacal API using fetch,
-     * and sets both the daily horoscope and extended personality traits in UI state.
+     * Calls supported Horoscope (Heroku) and Zodiacal API (no trailing /api/) using fetch,
+     * removing any legacy Aztro API and CORS proxy logic.
      */
     setFetching(true);
     setError('');
     setShowCard(false);
 
-    // Heroku-enabled Aztro API (requires POST)
-    const corsProxy = 'https://cors-anywhere.herokuapp.com/';
-    const aztroEndpoint = 'https://aztro.sameerkumar.website/';
     const zodiacSign = String(sign).toLowerCase();
-
-    // Zodiacal API (free, GET, returns array)
-    const zodiacalEndpoint = `https://zodiacal.herokuapp.com/api/${zodiacSign}`;
+    // Heroku Horoscope API (GET)
+    const horoscopeEndpoint = `https://horoscope-api.herokuapp.com/horoscope/${dayVal}/${zodiacSign}`;
+    // Zodiacal API (GET, returns array)
+    const zodiacalEndpoint = `https://zodiacal.herokuapp.com/${zodiacSign}`;
 
     let gotHoroscope = null;
     let gotTraits = null;
     let errorMsg = '';
 
     try {
-      // Trigger both fetches in parallel
+      // Fetch both in parallel
       const [horo, traitsRes] = await Promise.all([
-        fetch(`${corsProxy}${aztroEndpoint}?sign=${zodiacSign}&day=${dayVal}`, { method: 'POST' }),
+        fetch(horoscopeEndpoint),
         fetch(zodiacalEndpoint)
       ]);
       if (!horo.ok) throw new Error('Horoscope API error: ' + horo.status);
       if (!traitsRes.ok) throw new Error('Zodiacal API error: ' + traitsRes.status);
 
       gotHoroscope = await horo.json();
+      // Heroku horoscope returns an object: { date: "...", horoscope: "...", sign: "..." }
       // Zodiacal always returns [object], so we get [0]
       const traitsArr = await traitsRes.json();
       gotTraits = Array.isArray(traitsArr) ? traitsArr[0] : null;
 
-      setResult(gotHoroscope);
+      // Match output format for downstream rendering logic
+      // (fill `result` as if it were aztro-compatible)
+      setResult({
+        description: gotHoroscope.horoscope || '',
+        date: gotHoroscope.date,
+        sign: gotHoroscope.sign,
+        // Set other fields empty or plausible dummies, as the Heroku API doesn't return these
+        mood: '',
+        lucky_number: '',
+        color: '',
+        compatibility: '',
+        lucky_time: ''
+      });
       setTraits(gotTraits);
       setShowCard(true);
 
