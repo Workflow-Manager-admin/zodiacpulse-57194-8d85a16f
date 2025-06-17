@@ -11,9 +11,9 @@ asset bundle.js 1.41 MiB [emitted] (name: main)
 asset index.html 1.92 KiB [emitted]
 runtime modules 27.5 KiB 14 modules
 modules by path ./node_modules/ 1.24 MiB 31 modules
-modules by path ./src/ 28.5 KiB
+modules by path ./src/ 28.6 KiB
   modules by path ./src/*.css 7.49 KiB 4 modules
-  modules by path ./src/*.js 21 KiB
+  modules by path ./src/*.js 21.1 KiB
     ./src/index.js 530 bytes [built] [code generated]
     + 2 modules
 modules by path ./.ve/ 15.1 KiB
@@ -24,14 +24,4 @@ modules by path ./.ve/ 15.1 KiB
     ./.ve/EditorOverlay.css 2.25 KiB [built] [code generated]
     ./node_modules/css-loader/dist/cjs.js!./.ve/EditorOverlay.css 697 bytes [built] [code generated]
   ./.ve/EditorOverlay.jsx 1.58 KiB [built] [code generated]
-webpack 5.99.9 compiled successfully in 1340 ms
-assets by status 1.92 KiB [cached] 1 asset
-assets by path *.js 1.44 MiB
-  asset bundle.js 1.41 MiB [emitted] (name: main)
-  asset main.4babe826c726293bc52f.hot-update.js 25.4 KiB [emitted] [immutable] [hmr] (name: main)
-asset main.4babe826c726293bc52f.hot-update.json 28 bytes [emitted] [immutable] [hmr]
-Entrypoint main 1.44 MiB = bundle.js 1.41 MiB main.4babe826c726293bc52f.hot-update.js 25.4 KiB
-cached modules 1.26 MiB [cached] 42 modules
-runtime modules 27.5 KiB 14 modules
-./src/ZodiacPulseMain.js 20.1 KiB [built] [code generated]
-webpack 5.99.9 compiled successfully in 220 ms
+webpack 5.99.9 compiled successfully in 1442 ms
