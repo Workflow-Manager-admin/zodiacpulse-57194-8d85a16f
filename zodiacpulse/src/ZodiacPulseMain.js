@@ -81,7 +81,7 @@ function ZodiacPulseMain() {
     setZodiac(found);
   }, [birthdate]);
 
-  // Fetch horoscope from Deepseek API via openrouter.ai when zodiac changes
+  // Fetch horoscope (via Express backend proxy /chat) when zodiac changes
   useEffect(() => {
     if (!zodiac) {
       setHoroscope(null);
@@ -92,7 +92,7 @@ function ZodiacPulseMain() {
     setApiError(null);
     setHoroscope(null);
 
-    // Compose prompt for Deepseek
+    // Compose prompt for Deepseek-style API
     const prompt = `Provide a detailed, daily horoscope for the zodiac sign "${zodiac.sign}". Include: 
 - Date range for the sign,
 - Today's date,
@@ -104,11 +104,10 @@ function ZodiacPulseMain() {
 - Horoscope text as 'description'.
 Respond in compact JSON with the following keys: date_range, current_date, compatibility, mood, color, lucky_number, lucky_time, description. Exclude all extra commentary.`;
 
-    fetch("https://openrouter.ai/api/v1/chat/completions", {
+    // Make POST request to local Express proxy at /chat with Deepseek schema
+    fetch("http://localhost:5000/chat", {
       method: "POST",
-      // Only include Authorization and Content-Type, per API requirements—remove HTTP-Referer, X-Title, or other optional headers
       headers: {
-        "Authorization": "Bearer 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",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -127,11 +126,11 @@ Respond in compact JSON with the following keys: date_range, current_date, compa
       })
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Deepseek API error");
+        if (!res.ok) throw new Error("Horoscope API error");
         return res.json();
       })
       .then((data) => {
-        // Deepseek's API: response.choices[0].message.content
+        // Deepseek/OpenRouter compat: response.choices[0].message.content
         let responseText = data?.choices?.[0]?.message?.content;
         let parsed = null;
         try {
@@ -139,14 +138,14 @@ Respond in compact JSON with the following keys: date_range, current_date, compa
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
           parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(responseText);
         } catch (e) {
-          setApiError("Failed to parse Deepseek response.");
+          setApiError("Failed to parse server response.");
           setLoading(false);
           return;
         }
         setHoroscope(parsed);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         setApiError("Failed to fetch horoscope. Please try again.");
         setLoading(false);
       });
