@@ -14,42 +14,43 @@ const fetch = require("node-fetch");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-/**
- * PUBLIC_INTERFACE
- * Enable CORS for development (restrict as appropriate for production).
- * Allows POST requests from the local React frontend.
- */
-app.use(cors({
-  origin: "http://localhost:3000", // Change if frontend runs elsewhere
-  methods: ["POST"],
-  allowedHeaders: ["Content-Type"],
-}));
+// PUBLIC_INTERFACE
+// Enable CORS for development (configure appropriately for production).
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    methods: ["POST"],
+    allowedHeaders: ["Content-Type"],
+    credentials: false,
+  })
+);
 app.use(express.json());
 
-/**
- * PUBLIC_INTERFACE
- * POST /chat
- * Proxies the incoming JSON body to the Deepseek/OpenRouter API, injecting the API key from env.
- * Only 'Authorization' and 'Content-Type' headers are forwarded.
- * Never leaks or returns the API key in any response.
- */
+// PUBLIC_INTERFACE
+// POST /chat - securely proxies Deepseek API calls.
+// Never leaks API key. Only backend has the key.
 app.post("/chat", async (req, res) => {
   const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
   if (!deepseekApiKey) {
-    return res.status(500).json({ error: "Deepseek API key not configured on server." });
+    return res
+      .status(500)
+      .json({ error: "Deepseek API key not configured on server." });
   }
 
   try {
-    const upstreamResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${deepseekApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(req.body)
-    });
+    const upstreamResponse = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${deepseekApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      }
+    );
 
-    // Pass through status and body, never leak the key.
+    // Relay status and response body exactly; do not leak key.
     const contentType = upstreamResponse.headers.get("content-type") || "";
     res.status(upstreamResponse.status);
 
@@ -57,18 +58,16 @@ app.post("/chat", async (req, res) => {
       const data = await upstreamResponse.json();
       return res.json(data);
     } else {
-      const text = await upstreamResponse.text();
-      return res.send(text);
+      const rawText = await upstreamResponse.text();
+      return res.send(rawText);
     }
   } catch (err) {
     res.status(500).json({ error: "Failed to call Deepseek API." });
   }
 });
 
-/**
- * PUBLIC_INTERFACE
- * Start the Express proxy server.
- */
+// PUBLIC_INTERFACE
+// Start Express proxy server.
 app.listen(PORT, () => {
   console.log(`Proxy server for Deepseek listening on port ${PORT}`);
 });
