@@ -106,6 +106,7 @@ Respond in compact JSON with the following keys: date_range, current_date, compa
 
     fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
+      // Only include Authorization and Content-Type, per API requirements—remove HTTP-Referer, X-Title, or other optional headers
       headers: {
         "Authorization": "Bearer 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",
         "Content-Type": "application/json"
