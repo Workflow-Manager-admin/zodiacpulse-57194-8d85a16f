@@ -81,7 +81,7 @@ function ZodiacPulseMain() {
     setZodiac(found);
   }, [birthdate]);
 
-  // Fetch horoscope from Aztro API when zodiac changes
+  // Fetch horoscope from Deepseek API via openrouter.ai when zodiac changes
   useEffect(() => {
     if (!zodiac) {
       setHoroscope(null);
@@ -92,15 +92,57 @@ function ZodiacPulseMain() {
     setApiError(null);
     setHoroscope(null);
 
-    fetch(`https://aztro.sameerkumar.website/?sign=${zodiac.sign.toLowerCase()}&day=today`, {
+    // Compose prompt for Deepseek
+    const prompt = `Provide a detailed, daily horoscope for the zodiac sign "${zodiac.sign}". Include: 
+- Date range for the sign,
+- Today's date,
+- Compatibility,
+- Mood,
+- Color,
+- Lucky number,
+- Lucky time,
+- Horoscope text as 'description'.
+Respond in compact JSON with the following keys: date_range, current_date, compatibility, mood, color, lucky_number, lucky_time, description. Exclude all extra commentary.`;
+
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
+      headers: {
+        "Authorization": "Bearer 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",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "deepseek/deepseek-r1:free",
+        messages: [
+          {
+            role: "system",
+            content: "You are ZodiacPulse, a helpful astrology and horoscope assistant. Always respond with only compact valid JSON as requested.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          }
+        ],
+        stream: false
+      })
     })
       .then((res) => {
-        if (!res.ok) throw new Error("API error");
+        if (!res.ok) throw new Error("Deepseek API error");
         return res.json();
       })
       .then((data) => {
-        setHoroscope(data);
+        // Deepseek's API: response.choices[0].message.content
+        let responseText = data?.choices?.[0]?.message?.content;
+        let parsed = null;
+        try {
+          // Try extract JSON (may be surrounded by markdown code ticks)
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(responseText);
+        } catch (e) {
+          setApiError("Failed to parse Deepseek response.");
+          setLoading(false);
+          return;
+        }
+        setHoroscope(parsed);
         setLoading(false);
       })
       .catch((err) => {
