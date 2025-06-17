@@ -1,3 +1,11 @@
+/**
+ * ZodiacPulse Deepseek Proxy
+ * Provides a secure Express POST endpoint '/chat' that proxies Deepseek/OpenRouter API calls,
+ * injects the Deepseek API key from process.env, never leaks the key, and relays JSON responses.
+ * Only the backend knows the API key; the frontend must never see it.
+ * See README for setup instructions.
+ */
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
