@@ -19,6 +19,7 @@ function HousesData() {
   const [houses, setHouses] = useState(null);
 
   // FreeAstrologyAPI info
+  // Note: This API key and endpoint are for FreeAstrologyAPI; actual availability/stability is not guaranteed.
   const ASTRO_API_KEY = "0d72cb2fa2ac14bee854efc0aade164f";
   const HOUSES_ENDPOINT = "https://json.freeastrologyapi.com/western/houses";
 
@@ -30,10 +31,27 @@ function HousesData() {
   }
   function validDateString(d) {
     if (!d || typeof d !== "string") return false;
-    const dateObj = new Date(d);
-    if (isNaN(dateObj)) return false;
-    const year = dateObj.getFullYear();
-    return year >= 1600 && year <= 2100;
+    // Should be in format YYYY-MM-DD
+    // Date parsing quirk: new Date("YYYY-MM-DD") can create a UTC date, but Date object may show previous/next day in some timezones.
+    // Accept, but for payload, always send as given.
+    const dateParts = d.split("-");
+    if (dateParts.length !== 3) return false;
+    const year = Number(dateParts[0]);
+    const month = Number(dateParts[1]);
+    const day = Number(dateParts[2]);
+    if (
+      isNaN(year) ||
+      isNaN(month) ||
+      isNaN(day) ||
+      year < 1600 ||
+      year > 2100 ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 31
+    )
+      return false;
+    return true;
   }
   function allRequiredFields() {
     return (
@@ -62,21 +80,30 @@ function HousesData() {
 
     // Use device time (at submit)
     const now = new Date();
+    // yyyy-mm-dd from date input
     const y = date.substring(0, 4);
     const m = date.substring(5, 7);
-    const d = date.substring(8, 10);
+    const d_ = date.substring(8, 10);
+    // API expects time string "HH:MM:SS" (24h)
     const h = now.getHours().toString().padStart(2, "0");
     const n = now.getMinutes().toString().padStart(2, "0");
     const s = now.getSeconds().toString().padStart(2, "0");
-    const dateStr = `${y}-${m}-${d}`;
+    const dateStr = `${y}-${m}-${d_}`;
     const timeStr = `${h}:${n}:${s}`;
 
+    // According to public API docs, types are:
+    // POST: { latitude (number), longitude (number), date (YYYY-MM-DD), time (HH:MM:SS), house_system (str) }
+    // NOTE: Some hosts may require the header to be `token` or `Authorization`, and the "Token ..." prefix
+    // We're using `Authorization: Token ...` per their docs.
+
+    // The most common failure is if headers, types, or endpoint are incorrect, or if CORS is blocked.
+    // For debug, show more error detail if fetch fails.
     const payload = {
       date: dateStr,
       time: timeStr,
       latitude: Number(latitude),
       longitude: Number(longitude),
-      house_system: "placidus"
+      house_system: "placidus",
     };
 
     try {
@@ -87,13 +114,44 @@ function HousesData() {
           headers: {
             Authorization: `Token ${ASTRO_API_KEY}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
+          // 'validateStatus' allows us to get non-200 errors as response.
+          validateStatus: () => true
         }
       );
+
+      // For debugging: If response is not 200, show error
+      if (!response || typeof response.status !== "number") {
+        setError("No response from server. Network or CORS issue?");
+        setLoading(false);
+        return;
+      }
+      if (response.status !== 200) {
+        // Try to show message from API if available
+        let serverMsg = "";
+        if (response.data) {
+          if (typeof response.data === "object" && response.data.error)
+            serverMsg = ": " + response.data.error;
+          else if (typeof response.data === "string") serverMsg = ": " + response.data;
+        }
+        setError(
+          `API error (status ${response.status})${serverMsg ||
+            ""}. Please check your input or try again later.`
+        );
+        setLoading(false);
+        return;
+      }
+      // API returns {house1: val, house2: val, ...}
       setHouses(response.data);
       setLoading(false);
     } catch (err) {
-      setError("Failed to fetch house data.");
+      // Show detailed Axios error if possible
+      let msg = "Failed to fetch house data.";
+      if (err && err.response && typeof err.response.data === "object" && err.response.data.error)
+        msg += " " + err.response.data.error;
+      else if (err && err.message) msg += " " + err.message;
+      setError(msg);
       setLoading(false);
     }
   }
