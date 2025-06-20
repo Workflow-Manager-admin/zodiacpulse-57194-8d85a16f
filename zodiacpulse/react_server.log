@@ -34,3 +34,73 @@ cached modules 1.39 MiB [cached] 93 modules
 runtime modules 27.5 KiB 14 modules
 ./src/HousesData.js 14.4 KiB [built] [code generated]
 webpack 5.99.9 compiled successfully in 155 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.62 MiB
+  asset bundle.js 1.6 MiB [emitted] (name: main)
+  asset main.f812a8bdd8c1102b62dd.hot-update.js 18.8 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.f812a8bdd8c1102b62dd.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.62 MiB = bundle.js 1.6 MiB main.f812a8bdd8c1102b62dd.hot-update.js 18.8 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 14.4 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 114 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.62 MiB
+  asset bundle.js 1.6 MiB [emitted] (name: main)
+  asset main.995e2ae847a6454b44ef.hot-update.js 19.1 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.995e2ae847a6454b44ef.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.62 MiB = bundle.js 1.6 MiB main.995e2ae847a6454b44ef.hot-update.js 19.1 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 14.5 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 84 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.62 MiB
+  asset bundle.js 1.6 MiB [emitted] (name: main)
+  asset main.89d6a732bc7f14870317.hot-update.js 19.2 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.89d6a732bc7f14870317.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.62 MiB = bundle.js 1.6 MiB main.89d6a732bc7f14870317.hot-update.js 19.2 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 14.6 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 82 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.62 MiB
+  asset bundle.js 1.6 MiB [emitted] (name: main)
+  asset main.e7a8c999809c07b03d6c.hot-update.js 18.6 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.e7a8c999809c07b03d6c.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.62 MiB = bundle.js 1.6 MiB main.e7a8c999809c07b03d6c.hot-update.js 18.6 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 14.1 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 90 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.63 MiB
+  asset bundle.js 1.61 MiB [emitted] (name: main)
+  asset main.d4bfb980ba06e259ce99.hot-update.js 22.8 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.d4bfb980ba06e259ce99.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.63 MiB = bundle.js 1.61 MiB main.d4bfb980ba06e259ce99.hot-update.js 22.8 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 17.6 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 74 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.63 MiB
+  asset bundle.js 1.61 MiB [emitted] (name: main)
+  asset main.2a8e50a5f06a6d1c87de.hot-update.js 22.8 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.2a8e50a5f06a6d1c87de.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.63 MiB = bundle.js 1.61 MiB main.2a8e50a5f06a6d1c87de.hot-update.js 22.8 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 17.6 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 103 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.63 MiB
+  asset bundle.js 1.61 MiB [emitted] (name: main)
+  asset main.68a44abd967c65231f18.hot-update.js 23.2 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.68a44abd967c65231f18.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.63 MiB = bundle.js 1.61 MiB main.68a44abd967c65231f18.hot-update.js 23.2 KiB
+cached modules 1.39 MiB [cached] 93 modules
+runtime modules 27.5 KiB 14 modules
+./src/HousesData.js 17.9 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 157 ms

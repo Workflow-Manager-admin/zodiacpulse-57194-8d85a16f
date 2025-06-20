@@ -2,15 +2,20 @@ import React, { useState } from "react";
 import axios from "axios";
 
 /**
- * HousesData - Minimal astrological house calculator.
- * Inputs: latitude, longitude, date. Uses current device time automatically.
- * Shows response from the houses endpoint only (natal wheel/chart removed).
+ * HousesData - Astrological house calculator.
+ * Inputs: latitude, longitude, date, and time (hours, minutes, seconds).
+ * User explicitly enters time instead of using device time.
+ * Shows response from the houses endpoint only.
  */
 // PUBLIC_INTERFACE
 function HousesData() {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [date, setDate] = useState("");
+  // New: time fields
+  const [hour, setHour] = useState("");
+  const [minute, setMinute] = useState("");
+  const [second, setSecond] = useState("");
   const [inputTouched, setInputTouched] = useState(false);
 
   // API result state
@@ -32,8 +37,6 @@ function HousesData() {
   function validDateString(d) {
     if (!d || typeof d !== "string") return false;
     // Should be in format YYYY-MM-DD
-    // Date parsing quirk: new Date("YYYY-MM-DD") can create a UTC date, but Date object may show previous/next day in some timezones.
-    // Accept, but for payload, always send as given.
     const dateParts = d.split("-");
     if (dateParts.length !== 3) return false;
     const year = Number(dateParts[0]);
@@ -53,11 +56,21 @@ function HousesData() {
       return false;
     return true;
   }
+  // Validate hour/minute/second as integers in appropriate ranges
+  function validHour(h) {
+    return validNumber(h, 0, 23);
+  }
+  function validMinuteOrSecond(val) {
+    return validNumber(val, 0, 59);
+  }
   function allRequiredFields() {
     return (
       validNumber(latitude, -90, 90) &&
       validNumber(longitude, -180, 180) &&
-      validDateString(date)
+      validDateString(date) &&
+      validHour(hour) &&
+      validMinuteOrSecond(minute) &&
+      validMinuteOrSecond(second)
     );
   }
 
@@ -71,33 +84,24 @@ function HousesData() {
     // Validation
     if (!allRequiredFields()) {
       setError(
-        "Enter valid latitude (-90~90), longitude (-180~180), and date (1600-2100)."
+        "Enter valid latitude (-90~90), longitude (-180~180), date (1600-2100), and time (hours 0-23, minutes 0-59, seconds 0-59)."
       );
       return;
     }
 
     setLoading(true);
 
-    // Use device time (at submit)
-    const now = new Date();
-    // yyyy-mm-dd from date input
     const y = date.substring(0, 4);
     const m = date.substring(5, 7);
     const d_ = date.substring(8, 10);
-    // API expects time string "HH:MM:SS" (24h)
-    const h = now.getHours().toString().padStart(2, "0");
-    const n = now.getMinutes().toString().padStart(2, "0");
-    const s = now.getSeconds().toString().padStart(2, "0");
+
+    // Use user-provided time (pad to two digits)
+    const hh = hour.toString().padStart(2, "0");
+    const mm = minute.toString().padStart(2, "0");
+    const ss = second.toString().padStart(2, "0");
     const dateStr = `${y}-${m}-${d_}`;
-    const timeStr = `${h}:${n}:${s}`;
+    const timeStr = `${hh}:${mm}:${ss}`;
 
-    // According to public API docs, types are:
-    // POST: { latitude (number), longitude (number), date (YYYY-MM-DD), time (HH:MM:SS), house_system (str) }
-    // NOTE: Some hosts may require the header to be `token` or `Authorization`, and the "Token ..." prefix
-    // We're using `Authorization: Token ...` per their docs.
-
-    // The most common failure is if headers, types, or endpoint are incorrect, or if CORS is blocked.
-    // For debug, show more error detail if fetch fails.
     const payload = {
       date: dateStr,
       time: timeStr,
@@ -293,6 +297,79 @@ function HousesData() {
             required
           />
         </div>
+        {/* Time fields: Hour/Minute/Second */}
+        <div style={{ width: "100%", marginTop: 5, marginBottom: 0 }}>
+          <label
+            style={{
+              color: "#F4D35E",
+              fontWeight: 500,
+              fontSize: ".97rem",
+              marginBottom: 2,
+              display: "block",
+            }}
+            htmlFor="hour"
+          >
+            Time (24h): <span style={{ color: "#9cd6e6", fontWeight: 400, fontSize: ".93rem" }}>Hour:Minute:Second</span>
+          </label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              name="hour"
+              id="hour"
+              type="number"
+              value={hour}
+              onChange={(e) => {
+                setHour(e.target.value);
+                setInputTouched(true);
+                setError(""); setHouses(null);
+              }}
+              placeholder="HH"
+              style={{ ...inputStyle(), width: 44, textAlign: "center" }}
+              min={0}
+              max={23}
+              autoComplete="off"
+              aria-label="Hour"
+              required
+            />
+            <span style={{ fontSize: "1.2rem", color: "#baf6fa", alignSelf: "center" }}>:</span>
+            <input
+              name="minute"
+              id="minute"
+              type="number"
+              value={minute}
+              onChange={(e) => {
+                setMinute(e.target.value);
+                setInputTouched(true);
+                setError(""); setHouses(null);
+              }}
+              placeholder="MM"
+              style={{ ...inputStyle(), width: 44, textAlign: "center" }}
+              min={0}
+              max={59}
+              autoComplete="off"
+              aria-label="Minute"
+              required
+            />
+            <span style={{ fontSize: "1.2rem", color: "#baf6fa", alignSelf: "center" }}>:</span>
+            <input
+              name="second"
+              id="second"
+              type="number"
+              value={second}
+              onChange={(e) => {
+                setSecond(e.target.value);
+                setInputTouched(true);
+                setError(""); setHouses(null);
+              }}
+              placeholder="SS"
+              style={{ ...inputStyle(), width: 44, textAlign: "center" }}
+              min={0}
+              max={59}
+              autoComplete="off"
+              aria-label="Second"
+              required
+            />
+          </div>
+        </div>
         <button
           type="submit"
           style={{
@@ -346,6 +423,10 @@ function HousesData() {
           }}
         >
           Houses for {latitude}, {longitude} | {date}
+          {" "}
+          | <span style={{ color: "#F4D35E" }}>
+            {hour.toString().padStart(2, "0")}:{minute.toString().padStart(2, "0")}:{second.toString().padStart(2, "0")}
+          </span>
           <div
             style={{
               marginTop: 10,
@@ -392,7 +473,8 @@ function HousesData() {
               textAlign: "center"
             }}
           >
-            Calculated with your current time.
+            {/* Old: Calculated with your current time. */}
+            Calculated with your entered date and time.
           </div>
         </div>
       )}
@@ -406,7 +488,7 @@ function HousesData() {
             opacity: 0.85,
           }}
         >
-          Enter latitude, longitude, and date. Current device time will be used.
+          Enter latitude, longitude, date, and time (hour:minute:second).
         </div>
       )}
       {/* No results (if form submitted, but no data) */}
