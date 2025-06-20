@@ -3,24 +3,17 @@ import axios from "axios";
 
 // PUBLIC_INTERFACE
 /**
- * HousesData - Manual entry Astrological Houses Finder.
- * User manually enters latitude, longitude, date, time, timezone, and house system (plus seconds).
- * The FreeAstrologyAPI western/houses endpoint is called with these details.
+ * HousesData - Minimal Astrological Houses Finder.
+ * User enters latitude, longitude, and date.
+ * The FreeAstrologyAPI western/houses endpoint is called with those details, using the device's current local time.
  * Handles loading, error, and result display.
  */
 function HousesData() {
-  // Manual input state
+  // Only latitude, longitude, date
   const [inputs, setInputs] = useState({
     latitude: "",
     longitude: "",
-    timezone: "",
-    year: "",
-    month: "",
-    date: "",
-    hours: "",
-    minutes: "",
-    seconds: "",
-    house_system: "placidus"
+    date: ""
   });
   const [inputTouched, setInputTouched] = useState(false);
 
@@ -44,38 +37,23 @@ function HousesData() {
     setHouses(null);
   }
 
-  // Validation helpers
+  // PUBLIC_INTERFACE
   function validNumber(val, min, max) {
     if (typeof val !== "string" || val.trim() === "") return false;
     const num = Number(val);
     return !isNaN(num) && num >= min && num <= max;
   }
-  function validDatePart(field, val) {
-    if (field === "year") return validNumber(val, 1200, 2200);
-    if (field === "month") return validNumber(val, 1, 12);
-    if (field === "date") return validNumber(val, 1, 31);
-    return false;
-  }
-  function validTimePart(field, val) {
-    if (field === "hours") return validNumber(val, 0, 23);
-    if (field === "minutes") return validNumber(val, 0, 59);
-    if (field === "seconds") return validNumber(val, 0, 59);
-    return false;
+  function validDateString(d) {
+    if (!d || typeof d !== "string") return false;
+    const date = new Date(d);
+    if (!(date instanceof Date) || isNaN(date)) return false;
+    // Accepts valid ISO dates in the range 1600–2100
+    const year = date.getFullYear();
+    if (year < 1600 || year > 2100) return false;
+    return true;
   }
   function allRequiredFieldsFilled() {
-    const necessaryFields = [
-      "latitude",
-      "longitude",
-      "timezone",
-      "year",
-      "month",
-      "date",
-      "hours",
-      "minutes",
-      "seconds",
-      "house_system"
-    ];
-    return necessaryFields.every(
+    return ["latitude", "longitude", "date"].every(
       (f) => typeof inputs[f] === "string" && inputs[f].trim() !== ""
     );
   }
@@ -99,39 +77,47 @@ function HousesData() {
       setError("Latitude must be between -90 and 90, and Longitude between -180 and 180.");
       return;
     }
-    if (
-      !validDatePart("year", inputs.year) ||
-      !validDatePart("month", inputs.month) ||
-      !validDatePart("date", inputs.date)
-    ) {
-      setError("Please enter a valid date (YYYY-MM-DD).");
-      return;
-    }
-    if (
-      !validTimePart("hours", inputs.hours) ||
-      !validTimePart("minutes", inputs.minutes) ||
-      !validTimePart("seconds", inputs.seconds)
-    ) {
-      setError("Please enter a valid time (HH:MM:SS).");
-      return;
-    }
-    if (!inputs.timezone.match(/^[A-Za-z_\/]+$/)) {
-      setError("Please enter a valid timezone string (e.g., 'Europe/London').");
+    if (!validDateString(inputs.date)) {
+      setError("Please select a valid date (YYYY-MM-DD) between 1600 and 2100.");
       return;
     }
 
     setLoading(true);
 
+    // Get device's current time (not date)
+    const now = new Date();
+    // If a date is entered, combine it with current time (local)
+    const year = inputs.date.substring(0, 4);
+    const month = inputs.date.substring(5, 7);
+    const day = inputs.date.substring(8, 10);
+
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+
+    const dateStr = `${year}-${month}-${day}`;
+    const timeStr = `${hours}:${minutes}:${seconds}`;
+
+    // Use "auto" for timezone (let API interpret it), or can fallback to UTC offset
+    // FreeAstrologyAPI requires IANA, but we don't collect it; attempt to use browser offset as fallback
+    // Prefer "UTC" in case of ambiguity
+    function getBrowserTimezone() {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      } catch {
+        return "UTC";
+      }
+    }
+    const timezone = getBrowserTimezone();
+
     // Compose API payload
-    const dateStr = `${inputs.year.padStart(4, "0")}-${inputs.month.padStart(2, "0")}-${inputs.date.padStart(2, "0")}`;
-    const timeStr = `${inputs.hours.padStart(2, "0")}:${inputs.minutes.padStart(2, "0")}:${inputs.seconds.padStart(2, "0")}`;
     const payload = {
       date: dateStr,
       time: timeStr,
       latitude: Number(inputs.latitude),
       longitude: Number(inputs.longitude),
-      timezone: inputs.timezone,
-      house_system: inputs.house_system
+      timezone: timezone,
+      house_system: "placidus"
     };
 
     try {
@@ -153,7 +139,7 @@ function HousesData() {
       }
     } catch (err) {
       setError(
-        "Failed to fetch astrological houses for this data. Please try again later."
+        "Failed to fetch astrological houses for these coordinates and date. Please try again later."
       );
       setHouses(null);
     } finally {
@@ -162,10 +148,33 @@ function HousesData() {
   }
 
   // UI rendering: Form inputs helper
-  function renderInputField({ label, name, placeholder, type = "text", min, max, helper }) {
+  function renderInputField({
+    label,
+    name,
+    placeholder,
+    type = "text",
+    min,
+    max,
+    helper
+  }) {
     return (
-      <div style={{ marginBottom: 9, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-        <label htmlFor={name} style={{ color: "#F4D35E", fontWeight: 500, fontSize: ".98rem" }}>
+      <div
+        style={{
+          marginBottom: 9,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          width: "100%"
+        }}
+      >
+        <label
+          htmlFor={name}
+          style={{
+            color: "#F4D35E",
+            fontWeight: 500,
+            fontSize: ".98rem"
+          }}
+        >
           {label}
         </label>
         <input
@@ -193,7 +202,14 @@ function HousesData() {
           aria-label={label}
         />
         {helper && (
-          <div style={{ color: "#728ab7", fontSize: ".89rem", marginTop: 1, opacity: 0.9 }}>
+          <div
+            style={{
+              color: "#728ab7",
+              fontSize: ".89rem",
+              marginTop: 1,
+              opacity: 0.9
+            }}
+          >
             {helper}
           </div>
         )}
@@ -203,48 +219,59 @@ function HousesData() {
 
   return (
     <div
-      className="houses-manual-card"
+      className="houses-minimal-card"
       style={{
         background: "rgba(30,33,55,0.93)",
         borderRadius: "18px",
         boxShadow: "0 2px 17px #f4d35e11",
-        maxWidth: 420,
-        margin: "26px auto 0 auto",
+        maxWidth: 400,
+        margin: "34px auto 0 auto",
         padding: "22px 15px 18px 15px",
         color: "#FFECC7",
         fontFamily: "inherit",
-        minHeight: 160,
+        minHeight: 140,
         textAlign: "center"
       }}
     >
       <div
         style={{
           fontWeight: 600,
-          fontSize: "1.15rem",
-          marginBottom: 9,
+          fontSize: "1.14rem",
+          marginBottom: 10,
           color: "#F4D35E",
-          letterSpacing: "0.07em"
+          letterSpacing: "0.06em"
         }}
       >
-        Astrological Houses Finder&nbsp;<span style={{ color: "#9cd6e6" }}>[Manual]</span>
+        Astrological Houses Finder&nbsp;
+        <span style={{ color: "#9cd6e6" }}>[Minimal]</span>
       </div>
       <form
         onSubmit={handleSubmit}
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 6,
-          marginBottom: 15,
-          alignItems: "center"
+          gap: 12,
+          marginBottom: 14,
+          alignItems: "center",
+          width: "100%"
         }}
-        aria-label="Astrological Houses Manual Query Form"
+        aria-label="Astrological Houses Query Form"
       >
-        <div style={{ display: "flex", gap: 18, marginBottom: 5, flexWrap: "wrap", justifyContent: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 20,
+            marginBottom: 5,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            width: "100%"
+          }}
+        >
           {renderInputField({
             label: "Latitude",
             name: "latitude",
             placeholder: "e.g., 51.5072",
-            helper: "Degrees (-90 &rarr; 90, North=+)",
+            helper: "Degrees (-90 → 90, North=+)",
             type: "number",
             min: -90,
             max: 90
@@ -253,93 +280,53 @@ function HousesData() {
             label: "Longitude",
             name: "longitude",
             placeholder: "e.g., -0.1276",
-            helper: "Degrees (-180 &rarr; 180, East=+)",
+            helper: "Degrees (-180 → 180, East=+)",
             type: "number",
             min: -180,
             max: 180
           })}
         </div>
-        <div style={{ display: "flex", gap: 18, marginBottom: 4, flexWrap: "wrap", justifyContent: "center" }}>
-          {renderInputField({
-            label: "Timezone",
-            name: "timezone",
-            placeholder: "e.g., Europe/London",
-            helper: "IANA string (e.g., America/New_York)"
-          })}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-            <label htmlFor="house_system" style={{ color: "#F4D35E", fontWeight: 500, fontSize: ".98rem" }}>
-              House System
-            </label>
-            <select
-              id="house_system"
-              name="house_system"
-              value={inputs.house_system}
-              onChange={handleInputChange}
-              style={{
-                borderRadius: 5,
-                padding: "6px 10px",
-                fontSize: "1.01rem",
-                border: "1.3px solid #28529f",
-                background: "#121b32",
-                color: "#F4D35E",
-                outline: "none",
-                marginTop: 1,
-                width: 140
-              }}
-              required
-              aria-label="House System"
-            >
-              <option value="placidus">Placidus</option>
-              <option value="koch">Koch</option>
-              <option value="equal">Equal</option>
-              <option value="whole">Whole</option>
-              <option value="regiomontanus">Regiomontanus</option>
-              <option value="campanus">Campanus</option>
-            </select>
-            <div style={{ color: "#728ab7", fontSize: ".89rem", marginTop: 1, opacity: 0.9 }}>
-              Default is Placidus
-            </div>
+        <div
+          style={{
+            marginBottom: 9,
+            width: "100%"
+          }}
+        >
+          <label
+            htmlFor="date"
+            style={{
+              color: "#F4D35E",
+              fontWeight: 500,
+              fontSize: ".98rem"
+            }}
+          >
+            Date
+          </label>
+          <input
+            id="date"
+            name="date"
+            type="date"
+            value={inputs.date}
+            onChange={handleInputChange}
+            style={{
+              width: 160,
+              borderRadius: 5,
+              padding: "6px 10px",
+              fontSize: "1.01rem",
+              border: "1.3px solid #28529f",
+              background: "#121b32",
+              color: "#F4D35E",
+              outline: "none",
+              marginTop: 1
+            }}
+            required
+            aria-label="Date"
+            min="1600-01-01"
+            max="2100-12-31"
+          />
+          <div style={{ color: "#728ab7", fontSize: ".89rem", marginTop: 1, opacity: 0.9 }}>
+            Choose a calendar date (1600–2100)
           </div>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 3, flexWrap: "wrap", justifyContent: "center" }}>
-          {renderInputField({
-            label: "Year",
-            name: "year",
-            placeholder: "YYYY",
-            helper: "1600–2100"
-          })}
-          {renderInputField({
-            label: "Month",
-            name: "month",
-            placeholder: "MM",
-            helper: "1–12"
-          })}
-          {renderInputField({
-            label: "Date",
-            name: "date",
-            placeholder: "DD",
-            helper: "1–31"
-          })}
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 2, flexWrap: "wrap", justifyContent: "center" }}>
-          {renderInputField({
-            label: "Hours",
-            name: "hours",
-            placeholder: "HH",
-            helper: "0–23"
-          })}
-          {renderInputField({
-            label: "Minutes",
-            name: "minutes",
-            placeholder: "MM",
-            helper: "0–59"
-          })}
-          {renderInputField({
-            label: "Seconds",
-            name: "seconds",
-            placeholder: "SS",
-            helper: "0–59"
-          })}
         </div>
         <button
           type="submit"
@@ -361,14 +348,21 @@ function HousesData() {
       </form>
       {/* Feedback / errors / loading */}
       {error && (
-        <div style={{
-          color: "#E85E45", background: "#20111133", borderRadius: 7,
-          fontWeight: 500, padding: "8px 5px 7px 5px", marginTop: 6, marginBottom: 2, fontSize: "1.03rem"
-        }}>
+        <div
+          style={{
+            color: "#E85E45",
+            background: "#20111133",
+            borderRadius: 7,
+            fontWeight: 500,
+            padding: "8px 5px 7px 5px",
+            marginTop: 6,
+            marginBottom: 2,
+            fontSize: "1.03rem"
+          }}
+        >
           <span style={{ fontWeight: 600 }}>Error:</span> {error}
         </div>
       )}
-      {/* Loading indication (below form) */}
       {loading && (
         <div style={{ color: "#F4D35E", padding: "11px 0", fontWeight: 500 }}>
           <Spinner />&nbsp;Loading data...
@@ -377,17 +371,24 @@ function HousesData() {
       {/* Success: Show house data */}
       {houses && !loading && (
         <>
-          <div style={{
-            borderBottom: "1px solid #28529f77", paddingBottom: 6, marginBottom: 8,
-            marginTop: 3
-          }}>
+          <div
+            style={{
+              borderBottom: "1px solid #28529f77",
+              paddingBottom: 6,
+              marginBottom: 8,
+              marginTop: 3
+            }}
+          >
             <span style={{ color: "#9cd6e6", fontSize: "0.98rem" }}>
               Houses calculated for:<br />
-              {inputs.latitude}, {inputs.longitude} | {inputs.timezone}
+              {inputs.latitude}, {inputs.longitude} | {inputs.date}
               <br />
-              {`${inputs.year}-${inputs.month?.padStart?.(2, "0")}-${inputs.date?.padStart?.(2, "0")} ${inputs.hours?.padStart?.(2, "0")}:${inputs.minutes?.padStart?.(2, "0")}:${inputs.seconds?.padStart?.(2, "0")}`}
-              <br />
-              House System: {inputs.house_system.charAt(0).toUpperCase() + inputs.house_system.slice(1)}
+              (Current local time used:{" "}
+              {(() => {
+                const now = new Date();
+                return `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+              })()}
+              , {Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})
             </span>
           </div>
           <div>
@@ -395,8 +396,8 @@ function HousesData() {
               .filter((k) => k.toLowerCase().startsWith("house"))
               .sort((a, b) => {
                 // e.g., 'house1', 'house2'... sort numerically
-                const nA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
-                const nB = parseInt(b.replace(/[^0-9]/g, '')) || 0;
+                const nA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
+                const nB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
                 return nA - nB;
               })
               .map((k) => (
@@ -405,46 +406,55 @@ function HousesData() {
                 </div>
               ))}
             {houses.note && (
-              <div style={{
-                marginTop: 6,
-                color: "#F4D35E",
-                opacity: 0.7,
-                fontSize: ".99rem"
-              }}>
+              <div
+                style={{
+                  marginTop: 6,
+                  color: "#F4D35E",
+                  opacity: 0.7,
+                  fontSize: ".99rem"
+                }}
+              >
                 {houses.note}
               </div>
             )}
           </div>
-          <div style={{
-            color: "#728ab7", fontSize: "0.95rem",
-            opacity: 0.62, marginTop: 7
-          }}>
-            Astrological houses are calculated for your exact entry.
+          <div
+            style={{
+              color: "#728ab7",
+              fontSize: "0.95rem",
+              opacity: 0.62,
+              marginTop: 7
+            }}
+          >
+            Astrological houses are calculated for your exact entry (using your current time).
           </div>
         </>
       )}
       {/* Helper text for initial state */}
       {!houses && !loading && !error && !inputTouched && (
-        <div style={{
-          color: "#728ab7",
-          fontSize: "1.01rem",
-          marginTop: 3,
-          opacity: 0.87
-        }}>
+        <div
+          style={{
+            color: "#728ab7",
+            fontSize: "1.01rem",
+            marginTop: 3,
+            opacity: 0.87
+          }}
+        >
           <span>
-            Enter latitude, longitude, date, time, timezone,<br />
-            and house system to calculate your astrological houses.
+            Enter latitude, longitude, and your date. The current time will be used automatically.
           </span>
         </div>
       )}
       {/* No results */}
       {!houses && !loading && inputTouched && !error && (
-        <div style={{
-          color: "#728ab7",
-          fontSize: "1.01rem",
-          marginTop: 3,
-          opacity: 0.87
-        }}>
+        <div
+          style={{
+            color: "#728ab7",
+            fontSize: "1.01rem",
+            marginTop: 3,
+            opacity: 0.87
+          }}
+        >
           {"No data available for the given parameters (check your input)."}
         </div>
       )}
