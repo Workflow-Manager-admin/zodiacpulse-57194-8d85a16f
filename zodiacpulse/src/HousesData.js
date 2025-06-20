@@ -21,9 +21,18 @@ function HousesData() {
   const [error, setError] = useState("");
   const [houses, setHouses] = useState(null);
 
+  // Natal wheel chart state
+  const [natalWheelLoading, setNatalWheelLoading] = useState(false);
+  const [natalWheelError, setNatalWheelError] = useState("");
+  const [natalWheelUrl, setNatalWheelUrl] = useState("");
+
   // API KEYS and ENDPOINTS
   const ASTRO_API_KEY = "0d72cb2fa2ac14bee854efc0aade164f";
   const ASTRO_API_ENDPOINT = "https://json.freeastrologyapi.com/western/houses";
+  // For natal chart wheel PNG; this endpoint returns an image
+  // See: https://json.freeastrologyapi.com/western/wheel
+  // Docs: expects POST {date, time, latitude, longitude, timezone, house_system, chart_type: "natal"}, returns {url:"<img_url>"}
+  const ASTRO_WHEEL_ENDPOINT = "https://json.freeastrologyapi.com/western/wheel";
 
   // Helper: Input change handler
   function handleInputChange(e) {
@@ -35,6 +44,8 @@ function HousesData() {
     setInputTouched(true);
     setError("");
     setHouses(null);
+    setNatalWheelError("");
+    setNatalWheelUrl("");
   }
 
   // PUBLIC_INTERFACE
@@ -144,6 +155,45 @@ function HousesData() {
       setHouses(null);
     } finally {
       setLoading(false);
+    }
+    // Fetch natal wheel chart image
+    setNatalWheelLoading(true);
+    setNatalWheelError("");
+    setNatalWheelUrl("");
+    try {
+      const wheelResp = await axios.post(
+        ASTRO_WHEEL_ENDPOINT,
+        {
+          ...payload,
+          chart_type: "natal"
+        },
+        {
+          headers: {
+            Authorization: `Token ${ASTRO_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      // API returns {url: "image_url"}, but fallback to raw blob if not.
+      if (wheelResp && wheelResp.data) {
+        if (wheelResp.data.url) {
+          setNatalWheelUrl(wheelResp.data.url);
+        } else if (
+          wheelResp.data.image // sometimes the API returns base64 string
+        ) {
+          setNatalWheelUrl("data:image/png;base64," + wheelResp.data.image);
+        } else {
+          setNatalWheelError("No wheel chart image returned from astrology API.");
+        }
+      } else {
+        setNatalWheelError("No wheel chart data received from astrology API.");
+      }
+    } catch (err) {
+      setNatalWheelError(
+        "Failed to fetch natal wheel chart. Please try again later."
+      );
+    } finally {
+      setNatalWheelLoading(false);
     }
   }
 
@@ -391,42 +441,106 @@ function HousesData() {
               , {Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})
             </span>
           </div>
-          <div>
-            {Object.keys(houses)
-              .filter((k) => k.toLowerCase().startsWith("house"))
-              .sort((a, b) => {
-                // e.g., 'house1', 'house2'... sort numerically
-                const nA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
-                const nB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
-                return nA - nB;
-              })
-              .map((k) => (
-                <div key={k} style={{ marginBottom: 3, fontSize: "1.04rem" }}>
-                  <b>{k.replace(/(house)(\d+)/i, "House $2")}:</b> {houses[k]}
-                </div>
-              ))}
-            {houses.note && (
-              <div
-                style={{
-                  marginTop: 6,
-                  color: "#F4D35E",
-                  opacity: 0.7,
-                  fontSize: ".99rem"
-                }}
-              >
-                {houses.note}
+          {/* Natal Wheel Chart (Side by side or stacked) */}
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "13px",
+            marginTop: "7px"
+          }}>
+            <div style={{
+              display: "flex",
+              flexDirection: "row",
+              gap: "18px",
+              alignItems: "flex-start",
+              justifyContent: "center",
+              width: "100%"
+            }}>
+              {/* Chart */}
+              <div style={{
+                minWidth: 138,
+                minHeight: 138,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-start"
+              }}>
+                {natalWheelLoading && (
+                  <div style={{ color: "#F4D35E", padding: "9px 0" }}>
+                    <Spinner /> Loading natal wheel...
+                  </div>
+                )}
+                {natalWheelError && (
+                  <div style={{
+                    color: "#E85E45",
+                    background: "#28182633",
+                    borderRadius: 7,
+                    fontWeight: 500,
+                    padding: "7px 6px 7px 6px",
+                    marginBottom: 2,
+                    fontSize: "0.99rem"
+                  }}>
+                    <span style={{ fontWeight: 600 }}>Chart Error:</span> {natalWheelError}
+                  </div>
+                )}
+                {natalWheelUrl && (
+                  <img
+                    src={natalWheelUrl}
+                    alt="Natal Chart Wheel"
+                    style={{
+                      borderRadius: "12px",
+                      border: "2.2px solid #28529f",
+                      boxShadow: "0 2px 15px #28529f55",
+                      maxWidth: 160,
+                      maxHeight: 160,
+                      width: "auto",
+                      height: "auto",
+                      background: "#181e32"
+                    }}
+                  />
+                )}
               </div>
-            )}
-          </div>
-          <div
-            style={{
-              color: "#728ab7",
-              fontSize: "0.95rem",
-              opacity: 0.62,
-              marginTop: 7
-            }}
-          >
-            Astrological houses are calculated for your exact entry (using your current time).
+              {/* Houses Data */}
+              <div>
+                {Object.keys(houses)
+                  .filter((k) => k.toLowerCase().startsWith("house"))
+                  .sort((a, b) => {
+                    // e.g., 'house1', 'house2'... sort numerically
+                    const nA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
+                    const nB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
+                    return nA - nB;
+                  })
+                  .map((k) => (
+                    <div key={k} style={{ marginBottom: 3, fontSize: "1.04rem" }}>
+                      <b>{k.replace(/(house)(\d+)/i, "House $2")}:</b> {houses[k]}
+                    </div>
+                  ))}
+                {houses.note && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      color: "#F4D35E",
+                      opacity: 0.7,
+                      fontSize: ".99rem"
+                    }}
+                  >
+                    {houses.note}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div
+              style={{
+                color: "#728ab7",
+                fontSize: "0.95rem",
+                opacity: 0.62,
+                marginTop: 7
+              }}
+            >
+              Astrological houses are calculated for your exact entry (using your current time).<br />
+              Natal wheel shown as visual chart (for birth time and location).
+            </div>
           </div>
         </>
       )}
