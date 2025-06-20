@@ -25,3 +25,25 @@ modules by path ./.ve/ 15.1 KiB
     ./node_modules/css-loader/dist/cjs.js!./.ve/EditorOverlay.css 697 bytes [built] [code generated]
   ./.ve/EditorOverlay.jsx 1.58 KiB [built] [code generated]
 webpack 5.99.9 compiled successfully in 1373 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.47 MiB
+  asset bundle.js 1.43 MiB [emitted] (name: main)
+  asset main.46dc277fe55afe27d1f1.hot-update.js 42.7 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.46dc277fe55afe27d1f1.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.47 MiB = bundle.js 1.43 MiB main.46dc277fe55afe27d1f1.hot-update.js 42.7 KiB
+cached modules 1.26 MiB [cached] 42 modules
+runtime modules 27.5 KiB 14 modules
+javascript modules 33.8 KiB
+  ./src/ZodiacPulseMain.js 28.3 KiB [built] [code generated]
+  ./src/HousesData.js 5.42 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 253 ms
+assets by status 1.92 KiB [cached] 1 asset
+assets by path *.js 1.47 MiB
+  asset bundle.js 1.43 MiB [emitted] (name: main)
+  asset main.5c447a58d2c7d1e88cb0.hot-update.js 35.2 KiB [emitted] [immutable] [hmr] (name: main)
+asset main.5c447a58d2c7d1e88cb0.hot-update.json 28 bytes [emitted] [immutable] [hmr]
+Entrypoint main 1.47 MiB = bundle.js 1.43 MiB main.5c447a58d2c7d1e88cb0.hot-update.js 35.2 KiB
+cached modules 1.27 MiB [cached] 43 modules
+runtime modules 27.5 KiB 14 modules
+./src/ZodiacPulseMain.js 28.4 KiB [built] [code generated]
+webpack 5.99.9 compiled successfully in 90 ms

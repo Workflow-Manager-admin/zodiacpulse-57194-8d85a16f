@@ -1,4 +1,6 @@
+// ZodiacPulseMain main component
 import React, { useState, useEffect, useRef } from "react";
+import HousesData from "./HousesData"; // Import the HousesData component
 
 // PUBLIC_INTERFACE
 function ZodiacPulseMain() {
@@ -777,6 +779,8 @@ Respond in compact JSON with the following keys: date_range, current_date, compa
   .zod-h-desc { font-size: 1.04rem; }
 }
       `}</style>
+    {/* HousesData UI below the core app card */}
+    <HousesData />
     </div>
   );
 }
