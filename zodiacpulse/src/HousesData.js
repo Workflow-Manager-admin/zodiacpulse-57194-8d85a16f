@@ -2,67 +2,51 @@ import React, { useState } from "react";
 import axios from "axios";
 
 /**
- * HousesData - Minimal Astrological Houses Finder (plus Natal Wheel Chart).
- * User enters latitude, longitude, and date. All data is posted to the FreeAstrologyAPI endpoints.
- * Now also fetches and displays a natal wheel chart for the same inputs and current time.
- * Loading and error states for both house data and natal wheel visuals are handled.
- * The natal chart is shown alongside house data after both have returned.
+ * HousesData - Highly Minimal Astrological Houses & Natal Wheel Viewer.
+ * Only latitude, longitude, and date are input. API call uses current device time.
+ * Shows houses and natal chart. Handles loading/errors. Extremely minimal/clear UI.
  */
 // PUBLIC_INTERFACE
 function HousesData() {
-  // Input state for coordinates and date
-  const [inputs, setInputs] = useState({
-    latitude: "",
-    longitude: "",
-    date: ""
-  });
+  // Only kept inputs
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [date, setDate] = useState("");
   const [inputTouched, setInputTouched] = useState(false);
-  // State for fetching house data
+
+  // States for API loading/data/errors
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [houses, setHouses] = useState(null);
-  // State for fetching natal wheel chart image
-  const [natalWheelLoading, setNatalWheelLoading] = useState(false);
-  const [natalWheelError, setNatalWheelError] = useState("");
-  const [natalWheelUrl, setNatalWheelUrl] = useState("");
-  // API credentials/config
+
+  // Natal wheel chart image state
+  const [wheelUrl, setWheelUrl] = useState("");
+  const [wheelLoading, setWheelLoading] = useState(false);
+  const [wheelError, setWheelError] = useState("");
+
+  // API info
   const ASTRO_API_KEY = "0d72cb2fa2ac14bee854efc0aade164f";
-  const ASTRO_API_ENDPOINT = "https://json.freeastrologyapi.com/western/houses";
-  const ASTRO_WHEEL_ENDPOINT = "https://json.freeastrologyapi.com/western/wheel";
+  const HOUSES_ENDPOINT = "https://json.freeastrologyapi.com/western/houses";
+  const WHEEL_ENDPOINT = "https://json.freeastrologyapi.com/western/wheel";
 
-  // Handle user input changes (reset error/data state as needed)
-  function handleInputChange(e) {
-    const { name, value } = e.target;
-    setInputs((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-    setInputTouched(true);
-    setError("");
-    setHouses(null);
-    setNatalWheelError("");
-    setNatalWheelUrl("");
-  }
-
-  // PUBLIC_INTERFACE
+  // Helpers for simple validation
   function validNumber(val, min, max) {
     if (typeof val !== "string" || val.trim() === "") return false;
     const num = Number(val);
     return !isNaN(num) && num >= min && num <= max;
   }
-  // PUBLIC_INTERFACE
   function validDateString(d) {
     if (!d || typeof d !== "string") return false;
-    const date = new Date(d);
-    if (!(date instanceof Date) || isNaN(date)) return false;
-    const year = date.getFullYear();
-    if (year < 1600 || year > 2100) return false;
-    return true;
+    const dateObj = new Date(d);
+    if (isNaN(dateObj)) return false;
+    const year = dateObj.getFullYear();
+    return year >= 1600 && year <= 2100;
   }
-  // PUBLIC_INTERFACE
-  function allRequiredFieldsFilled() {
-    return ["latitude", "longitude", "date"].every(
-      (f) => typeof inputs[f] === "string" && inputs[f].trim() !== ""
+  function allRequiredFields() {
+    return (
+      validNumber(latitude, -90, 90) &&
+      validNumber(longitude, -180, 180) &&
+      validDateString(date)
     );
   }
 
@@ -70,314 +54,240 @@ function HousesData() {
   async function handleSubmit(e) {
     e.preventDefault();
     setInputTouched(true);
-    setError("");
     setHouses(null);
+    setError("");
+    setWheelError("");
+    setWheelUrl("");
 
     // Validation
-    if (!allRequiredFieldsFilled()) {
-      setError("Please fill in all the required fields.");
-      return;
-    }
-    if (
-      !validNumber(inputs.latitude, -90, 90) ||
-      !validNumber(inputs.longitude, -180, 180)
-    ) {
-      setError("Latitude must be between -90 and 90, and Longitude between -180 and 180.");
-      return;
-    }
-    if (!validDateString(inputs.date)) {
-      setError("Please select a valid date (YYYY-MM-DD) between 1600 and 2100.");
+    if (!allRequiredFields()) {
+      setError(
+        "Enter valid latitude (-90~90), longitude (-180~180), and date (1600-2100)."
+      );
       return;
     }
 
     setLoading(true);
-    setNatalWheelLoading(true); // Start loading both endpoints in parallel
-    setNatalWheelError("");
-    setNatalWheelUrl("");
+    setWheelLoading(true);
 
-    // Get device time for the moment of submission (as close to exact as possible)
+    // Use device time (closest to submit)
     const now = new Date();
-    const year = inputs.date.substring(0, 4);
-    const month = inputs.date.substring(5, 7);
-    const day = inputs.date.substring(8, 10);
-    const hours = now.getHours().toString().padStart(2, "0");
-    const minutes = now.getMinutes().toString().padStart(2, "0");
-    const seconds = now.getSeconds().toString().padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
-    const timeStr = `${hours}:${minutes}:${seconds}`;
-
-    // Determine timezone (IANA name, fallback to UTC)
-    function getBrowserTimezone() {
+    const y = date.substring(0, 4);
+    const m = date.substring(5, 7);
+    const d = date.substring(8, 10);
+    const h = now.getHours().toString().padStart(2, "0");
+    const n = now.getMinutes().toString().padStart(2, "0");
+    const s = now.getSeconds().toString().padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+    const timeStr = `${h}:${n}:${s}`;
+    const timezone = (() => {
       try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
       } catch {
         return "UTC";
       }
-    }
-    const timezone = getBrowserTimezone();
-
-    // Compose body/payload for both endpoints (one extra param for wheel)
+    })();
     const payload = {
       date: dateStr,
       time: timeStr,
-      latitude: Number(inputs.latitude),
-      longitude: Number(inputs.longitude),
+      latitude: Number(latitude),
+      longitude: Number(longitude),
       timezone: timezone,
-      house_system: "placidus"
+      house_system: "placidus",
     };
 
-    // Run house data and natal wheel requests in parallel for speed
-    let houseError = "";
-    let newHouses = null;
-    let natalError = "";
-    let natalUrl = "";
+    // Parallel fetches
+    let housesResp = null,
+      housesErr = "",
+      wheelResp = null,
+      wheelErr = "";
 
-    const housePromise = axios.post(
-      ASTRO_API_ENDPOINT,
-      payload,
-      {
+    const housesPromise = axios
+      .post(HOUSES_ENDPOINT, payload, {
         headers: {
           Authorization: `Token ${ASTRO_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    ).then((resp) => {
-      if (resp && resp.data) {
-        newHouses = resp.data;
-        houseError = "";
-      } else {
-        houseError = "No data received from astrology API.";
-      }
-    }).catch(() => {
-      houseError = "Failed to fetch astrological houses for these coordinates and date. Please try again later.";
-    });
+          "Content-Type": "application/json",
+        },
+      })
+      .then((r) => (housesResp = r.data))
+      .catch(() => (housesErr = "Failed to fetch houses."));
 
-    const natalPromise = axios.post(
-      ASTRO_WHEEL_ENDPOINT,
-      { ...payload, chart_type: "natal" },
-      {
-        headers: {
-          Authorization: `Token ${ASTRO_API_KEY}`,
-          "Content-Type": "application/json"
+    const wheelPromise = axios
+      .post(
+        WHEEL_ENDPOINT,
+        { ...payload, chart_type: "natal" },
+        {
+          headers: {
+            Authorization: `Token ${ASTRO_API_KEY}`,
+            "Content-Type": "application/json",
+          },
         }
-      }
-    ).then((resp) => {
-      if (resp && resp.data) {
-        if (resp.data.url) {
-          natalUrl = resp.data.url;
-        } else if (resp.data.image) {
-          natalUrl = "data:image/png;base64," + resp.data.image;
-        } else {
-          natalError = "No natal wheel chart image returned from astrology API.";
-        }
-      } else {
-        natalError = "No natal wheel chart data received from astrology API.";
-      }
-    }).catch(() => {
-      natalError = "Failed to fetch natal wheel chart. Please try again later.";
-    });
+      )
+      .then((r) => {
+        // Prefer url, otherwise base64 "image"
+        if (r.data.url) wheelResp = r.data.url;
+        else if (r.data.image)
+          wheelResp = "data:image/png;base64," + r.data.image;
+        else wheelErr = "No wheel image returned.";
+      })
+      .catch(() => (wheelErr = "Failed to fetch natal wheel."));
 
-    // Wait for both in parallel
-    await Promise.all([housePromise, natalPromise]);
+    await Promise.all([housesPromise, wheelPromise]);
     setLoading(false);
-    setNatalWheelLoading(false);
+    setWheelLoading(false);
 
-    if (houseError) {
-      setError(houseError);
+    // Handle house results
+    if (housesErr) {
+      setError(housesErr);
       setHouses(null);
     } else {
-      setHouses(newHouses);
-      setError("");
+      setHouses(housesResp);
     }
-    if (natalError) {
-      setNatalWheelError(natalError);
-      setNatalWheelUrl("");
+    // Wheel chart
+    if (wheelErr) {
+      setWheelError(wheelErr);
+      setWheelUrl("");
     } else {
-      setNatalWheelError("");
-      setNatalWheelUrl(natalUrl);
+      setWheelUrl(wheelResp);
     }
   }
 
-  // UI rendering: Form inputs helper
-  function renderInputField({
-    label,
-    name,
-    placeholder,
-    type = "text",
-    min,
-    max,
-    helper
-  }) {
-    return (
-      <div
-        style={{
-          marginBottom: 9,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          width: "100%"
-        }}
-      >
-        <label
-          htmlFor={name}
-          style={{
-            color: "#F4D35E",
-            fontWeight: 500,
-            fontSize: ".98rem"
-          }}
-        >
-          {label}
-        </label>
-        <input
-          id={name}
-          name={name}
-          type={type}
-          value={inputs[name]}
-          onChange={handleInputChange}
-          placeholder={placeholder}
-          style={{
-            width: 160,
-            borderRadius: 5,
-            padding: "6px 10px",
-            fontSize: "1.01rem",
-            border: "1.3px solid #28529f",
-            background: "#121b32",
-            color: "#F4D35E",
-            outline: "none",
-            marginTop: 1
-          }}
-          autoComplete="off"
-          min={min}
-          max={max}
-          required
-          aria-label={label}
-        />
-        {helper && (
-          <div
-            style={{
-              color: "#728ab7",
-              fontSize: ".89rem",
-              marginTop: 1,
-              opacity: 0.9
-            }}
-          >
-            {helper}
-          </div>
-        )}
-      </div>
-    );
-  }
-
+  // Clean, minimal fields
   return (
     <div
-      className="houses-minimal-card"
       style={{
-        background: "rgba(30,33,55,0.93)",
-        borderRadius: "18px",
-        boxShadow: "0 2px 17px #f4d35e11",
-        maxWidth: 400,
-        margin: "34px auto 0 auto",
-        padding: "22px 15px 18px 15px",
+        background: "rgba(30,33,55,0.94)",
+        borderRadius: 14,
+        maxWidth: 370,
+        margin: "38px auto 0 auto",
+        padding: "18px 14px 15px 14px",
         color: "#FFECC7",
-        fontFamily: "inherit",
-        minHeight: 140,
-        textAlign: "center"
+        minHeight: 126,
+        boxShadow: "0 2px 14px #f4d35e18",
+        textAlign: "center",
       }}
     >
       <div
         style={{
           fontWeight: 600,
-          fontSize: "1.14rem",
+          fontSize: "1.04rem",
           marginBottom: 10,
           color: "#F4D35E",
-          letterSpacing: "0.06em"
         }}
       >
-        Astrological Houses Finder&nbsp;
-        <span style={{ color: "#9cd6e6" }}>[Minimal]</span>
+        Astrological Houses & Natal Wheel{" "}
+        <span style={{ color: "#9cd6e6" }}>[Simple]</span>
       </div>
       <form
         onSubmit={handleSubmit}
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 12,
-          marginBottom: 14,
+          gap: 11,
+          marginBottom: 10,
           alignItems: "center",
-          width: "100%"
+          width: "100%",
         }}
         aria-label="Astrological Houses Query Form"
       >
-        <div
-          style={{
-            display: "flex",
-            gap: 20,
-            marginBottom: 5,
-            flexWrap: "wrap",
-            justifyContent: "center",
-            width: "100%"
-          }}
-        >
-          {renderInputField({
-            label: "Latitude",
-            name: "latitude",
-            placeholder: "e.g., 51.5072",
-            helper: "Degrees (-90 → 90, North=+)",
-            type: "number",
-            min: -90,
-            max: 90
-          })}
-          {renderInputField({
-            label: "Longitude",
-            name: "longitude",
-            placeholder: "e.g., -0.1276",
-            helper: "Degrees (-180 → 180, East=+)",
-            type: "number",
-            min: -180,
-            max: 180
-          })}
-        </div>
-        <div
-          style={{
-            marginBottom: 9,
-            width: "100%"
-          }}
-        >
+        {/* Latitude */}
+        <div style={{ width: "100%", marginBottom: 6 }}>
           <label
-            htmlFor="date"
             style={{
               color: "#F4D35E",
               fontWeight: 500,
-              fontSize: ".98rem"
+              fontSize: ".97rem",
+              marginBottom: 2,
+              display: "block",
             }}
+            htmlFor="latitude"
+          >
+            Latitude
+          </label>
+          <input
+            name="latitude"
+            id="latitude"
+            type="number"
+            value={latitude}
+            onChange={(e) => {
+              setLatitude(e.target.value);
+              setInputTouched(true);
+              setError(""); setWheelError(""); setHouses(null); setWheelUrl("");
+            }}
+            placeholder="e.g., 40.7128"
+            style={inputStyle()}
+            min={-90}
+            max={90}
+            step="any"
+            autoComplete="off"
+            aria-label="Latitude"
+            required
+          />
+        </div>
+        {/* Longitude */}
+        <div style={{ width: "100%", marginBottom: 6 }}>
+          <label
+            style={{
+              color: "#F4D35E",
+              fontWeight: 500,
+              fontSize: ".97rem",
+              marginBottom: 2,
+              display: "block",
+            }}
+            htmlFor="longitude"
+          >
+            Longitude
+          </label>
+          <input
+            name="longitude"
+            id="longitude"
+            type="number"
+            value={longitude}
+            onChange={(e) => {
+              setLongitude(e.target.value);
+              setInputTouched(true);
+              setError(""); setWheelError(""); setHouses(null); setWheelUrl("");
+            }}
+            placeholder="e.g., -74.0060"
+            style={inputStyle()}
+            min={-180}
+            max={180}
+            step="any"
+            autoComplete="off"
+            aria-label="Longitude"
+            required
+          />
+        </div>
+        {/* Date */}
+        <div style={{ width: "100%", marginBottom: 1 }}>
+          <label
+            style={{
+              color: "#F4D35E",
+              fontWeight: 500,
+              fontSize: ".97rem",
+              marginBottom: 2,
+              display: "block",
+            }}
+            htmlFor="date"
           >
             Date
           </label>
           <input
-            id="date"
             name="date"
+            id="date"
             type="date"
-            value={inputs.date}
-            onChange={handleInputChange}
-            style={{
-              width: 160,
-              borderRadius: 5,
-              padding: "6px 10px",
-              fontSize: "1.01rem",
-              border: "1.3px solid #28529f",
-              background: "#121b32",
-              color: "#F4D35E",
-              outline: "none",
-              marginTop: 1
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setInputTouched(true);
+              setError(""); setWheelError(""); setHouses(null); setWheelUrl("");
             }}
-            required
-            aria-label="Date"
             min="1600-01-01"
             max="2100-12-31"
+            style={inputStyle()}
+            aria-label="Date"
+            required
           />
-          <div style={{ color: "#728ab7", fontSize: ".89rem", marginTop: 1, opacity: 0.9 }}>
-            Choose a calendar date (1600–2100)
-          </div>
         </div>
         <button
           type="submit"
@@ -387,197 +297,224 @@ function HousesData() {
             borderRadius: 4,
             border: "none",
             fontWeight: 600,
-            padding: "7px 18px",
+            padding: "7px 16px",
             cursor: "pointer",
-            fontSize: "1.07rem",
-            marginTop: 8,
-            minWidth: 110
+            fontSize: "1.03rem",
+            marginTop: 10,
+            minWidth: 100,
           }}
         >
           {loading ? <Spinner /> : "Show Houses"}
         </button>
       </form>
-      {/* Feedback / errors / loading */}
+
+      {/* Feedback & Results */}
       {error && (
         <div
           style={{
             color: "#E85E45",
-            background: "#20111133",
+            background: "#28182633",
             borderRadius: 7,
-            fontWeight: 500,
-            padding: "8px 5px 7px 5px",
-            marginTop: 6,
+            padding: "8px 4px 7px 4px",
+            marginTop: 8,
             marginBottom: 2,
-            fontSize: "1.03rem"
+            fontSize: "1.01rem",
+            fontWeight: 500,
           }}
         >
-          <span style={{ fontWeight: 600 }}>Error:</span> {error}
+          {error}
         </div>
       )}
-      {loading && (
-        <div style={{ color: "#F4D35E", padding: "11px 0", fontWeight: 500 }}>
-          <Spinner />&nbsp;Loading data...
+      {(loading || wheelLoading) && (
+        <div style={{ color: "#F4D35E", padding: "10px 0", fontWeight: 500 }}>
+          <Spinner /> Loading...
         </div>
       )}
-      {/* Success: Show house data */}
+      {/* Display result: chart & houses */}
       {houses && !loading && (
-        <>
-          <div
-            style={{
-              borderBottom: "1px solid #28529f77",
-              paddingBottom: 6,
-              marginBottom: 8,
-              marginTop: 3
-            }}
-          >
-            <span style={{ color: "#9cd6e6", fontSize: "0.98rem" }}>
-              Houses calculated for:<br />
-              {inputs.latitude}, {inputs.longitude} | {inputs.date}
-              <br />
-              (Current local time used:{" "}
-              {(() => {
-                const now = new Date();
-                return `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
-              })()}
-              , {Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})
-            </span>
-          </div>
-          {/* Natal Wheel Chart (Side by side or stacked) */}
-          <div style={{
+        <div
+          style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: "13px",
-            marginTop: "7px"
-          }}>
-            <div style={{
+            margin: "14px 0 4px 0",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              borderBottom: "1px solid #28529f40",
+              paddingBottom: 5,
+              marginBottom: 8,
+              marginTop: 2,
+              color: "#9cd6e6",
+              fontSize: "0.93rem",
+            }}
+          >
+            Houses for {latitude}, {longitude} | {date}
+            <br />
+            (Current time:{" "}
+            {(() => {
+              const now = new Date();
+              return (
+                now
+                  .getHours()
+                  .toString()
+                  .padStart(2, "0") +
+                ":" +
+                now
+                  .getMinutes()
+                  .toString()
+                  .padStart(2, "0") +
+                ":" +
+                now
+                  .getSeconds()
+                  .toString()
+                  .padStart(2, "0")
+              );
+            })()}
+            , {Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})
+          </div>
+          <div
+            style={{
               display: "flex",
-              flexDirection: "row",
               gap: "18px",
-              alignItems: "flex-start",
               justifyContent: "center",
-              width: "100%"
-            }}>
-              {/* Chart */}
-              <div style={{
-                minWidth: 138,
-                minHeight: 138,
+              alignItems: "flex-start",
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                minWidth: 120,
+                minHeight: 120,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "flex-start"
-              }}>
-                {natalWheelLoading && (
-                  <div style={{ color: "#F4D35E", padding: "9px 0" }}>
-                    <Spinner /> Loading natal wheel...
-                  </div>
-                )}
-                {natalWheelError && (
-                  <div style={{
+                justifyContent: "flex-start",
+                paddingRight: 4,
+              }}
+            >
+              {wheelLoading && (
+                <div style={{ color: "#F4D35E", padding: "8px 0" }}>
+                  <Spinner /> Loading chart...
+                </div>
+              )}
+              {wheelError && (
+                <div
+                  style={{
                     color: "#E85E45",
                     background: "#28182633",
                     borderRadius: 7,
                     fontWeight: 500,
                     padding: "7px 6px 7px 6px",
                     marginBottom: 2,
-                    fontSize: "0.99rem"
-                  }}>
-                    <span style={{ fontWeight: 600 }}>Chart Error:</span> {natalWheelError}
-                  </div>
-                )}
-                {natalWheelUrl && (
-                  <img
-                    src={natalWheelUrl}
-                    alt="Natal Chart Wheel"
-                    style={{
-                      borderRadius: "12px",
-                      border: "2.2px solid #28529f",
-                      boxShadow: "0 2px 15px #28529f55",
-                      maxWidth: 160,
-                      maxHeight: 160,
-                      width: "auto",
-                      height: "auto",
-                      background: "#181e32"
-                    }}
-                  />
-                )}
-              </div>
-              {/* Houses Data */}
-              <div>
-                {Object.keys(houses)
-                  .filter((k) => k.toLowerCase().startsWith("house"))
-                  .sort((a, b) => {
-                    // e.g., 'house1', 'house2'... sort numerically
-                    const nA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
-                    const nB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
-                    return nA - nB;
-                  })
-                  .map((k) => (
-                    <div key={k} style={{ marginBottom: 3, fontSize: "1.04rem" }}>
-                      <b>{k.replace(/(house)(\d+)/i, "House $2")}:</b> {houses[k]}
-                    </div>
-                  ))}
-                {houses.note && (
-                  <div
-                    style={{
-                      marginTop: 6,
-                      color: "#F4D35E",
-                      opacity: 0.7,
-                      fontSize: ".99rem"
-                    }}
-                  >
-                    {houses.note}
-                  </div>
-                )}
-              </div>
+                    fontSize: "0.97rem",
+                  }}
+                >
+                  {wheelError}
+                </div>
+              )}
+              {wheelUrl && (
+                <img
+                  src={wheelUrl}
+                  alt="Natal Chart Wheel"
+                  style={{
+                    borderRadius: "11px",
+                    border: "2.2px solid #28529f",
+                    boxShadow: "0 2px 15px #28529f18",
+                    maxWidth: 148,
+                    maxHeight: 148,
+                    width: "auto",
+                    height: "auto",
+                    background: "#181e32",
+                  }}
+                />
+              )}
             </div>
-            <div
-              style={{
-                color: "#728ab7",
-                fontSize: "0.95rem",
-                opacity: 0.62,
-                marginTop: 7
-              }}
-            >
-              Astrological houses are calculated for your exact entry (using your current time).<br />
-              Natal wheel shown as visual chart (for birth time and location).
+            <div>
+              {Object.keys(houses)
+                .filter((k) => k.toLowerCase().startsWith("house"))
+                .sort((a, b) => {
+                  const nA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
+                  const nB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
+                  return nA - nB;
+                })
+                .map((k) => (
+                  <div key={k} style={{ marginBottom: 2, fontSize: "1.01rem" }}>
+                    <b>{k.replace(/house(\d+)/i, "House $1")}:</b> {houses[k]}
+                  </div>
+                ))}
+              {houses.note && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    color: "#F4D35E",
+                    opacity: 0.7,
+                    fontSize: ".98rem",
+                  }}
+                >
+                  {houses.note}
+                </div>
+              )}
             </div>
           </div>
-        </>
+          <div
+            style={{
+              color: "#728ab7",
+              fontSize: "0.93rem",
+              opacity: 0.7,
+              marginTop: 6,
+            }}
+          >
+            Calculated with your current time. Visual natal wheel included.<br />
+          </div>
+        </div>
       )}
-      {/* Helper text for initial state */}
+      {/* Entry help */}
       {!houses && !loading && !error && !inputTouched && (
         <div
           style={{
             color: "#728ab7",
-            fontSize: "1.01rem",
+            fontSize: "0.97rem",
             marginTop: 3,
-            opacity: 0.87
+            opacity: 0.85,
           }}
         >
-          <span>
-            Enter latitude, longitude, and your date. The current time will be used automatically.
-          </span>
+          Enter latitude, longitude, and date. Current device time will be used.
         </div>
       )}
-      {/* No results */}
+      {/* No results (if form submitted, but no data) */}
       {!houses && !loading && inputTouched && !error && (
         <div
           style={{
             color: "#728ab7",
-            fontSize: "1.01rem",
-            marginTop: 3,
-            opacity: 0.87
+            fontSize: "0.97rem",
+            marginTop: 2,
+            opacity: 0.85,
           }}
         >
-          {"No data available for the given parameters (check your input)."}
+          No data available for the given parameters.
         </div>
       )}
     </div>
   );
 }
 
-// Small accent spinner component
+function inputStyle() {
+  return {
+    width: 150,
+    borderRadius: 5,
+    padding: "6px 8px",
+    fontSize: "1.01rem",
+    border: "1.2px solid #28529f",
+    background: "#121b32",
+    color: "#F4D35E",
+    outline: "none",
+    marginTop: 2,
+  };
+}
+
 // PUBLIC_INTERFACE
 function Spinner() {
   return (
@@ -585,19 +522,19 @@ function Spinner() {
       style={{
         display: "inline-block",
         verticalAlign: "middle",
-        margin: "0 5px 0 0"
+        margin: "0 5px 0 0",
       }}
     >
       <span
         style={{
-          width: 22,
-          height: 22,
+          width: 20,
+          height: 20,
           display: "inline-block",
           border: "3px solid #f4d35e99",
           borderTop: "3px solid #28529f",
           borderRadius: "50%",
           animation: "spinner-rotate 0.8s linear infinite",
-          marginBottom: -4
+          marginBottom: -4,
         }}
       ></span>
       <style>
