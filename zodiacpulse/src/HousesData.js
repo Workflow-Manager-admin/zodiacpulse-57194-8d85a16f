@@ -3,19 +3,16 @@ import axios from "axios";
 
 /**
  * HousesData - Astrological house calculator.
- * Inputs: latitude, longitude, date, and time (hours, minutes, seconds).
- * User explicitly enters time instead of using device time.
+ * Inputs: latitude, longitude, datetime-local (single input).
+ * User explicitly enters datetime instead of using device time.
  * Shows response from the houses endpoint only.
  */
 // PUBLIC_INTERFACE
 function HousesData() {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [date, setDate] = useState("");
-  // New: time fields
-  const [hour, setHour] = useState("");
-  const [minute, setMinute] = useState("");
-  const [second, setSecond] = useState("");
+  // datetimeLocal is an ISO string "YYYY-MM-DDTHH:mm"
+  const [datetimeLocal, setDatetimeLocal] = useState("");
   const [inputTouched, setInputTouched] = useState(false);
 
   // API result state
@@ -24,7 +21,6 @@ function HousesData() {
   const [houses, setHouses] = useState(null);
 
   // FreeAstrologyAPI info
-  // Note: This API key and endpoint are for FreeAstrologyAPI; actual availability/stability is not guaranteed.
   const ASTRO_API_KEY = "0d72cb2fa2ac14bee854efc0aade164f";
   const HOUSES_ENDPOINT = "https://json.freeastrologyapi.com/western/houses";
 
@@ -34,43 +30,37 @@ function HousesData() {
     const num = Number(val);
     return !isNaN(num) && num >= min && num <= max;
   }
-  function validDateString(d) {
-    if (!d || typeof d !== "string") return false;
-    // Should be in format YYYY-MM-DD
-    const dateParts = d.split("-");
-    if (dateParts.length !== 3) return false;
-    const year = Number(dateParts[0]);
-    const month = Number(dateParts[1]);
-    const day = Number(dateParts[2]);
+  function validDatetimeLocal(dt) {
+    // Format should be "YYYY-MM-DDTHH:mm" (HTML5 datetime-local)
+    if (!dt || typeof dt !== "string") return false;
+    // Check if string is in ISO format
+    // Ex: 2024-05-01T22:15
+    const match = dt.match(
+      /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/
+    );
+    if (!match) return false;
+    const [_all, year, month, day, hour, minute] = match;
     if (
-      isNaN(year) ||
-      isNaN(month) ||
-      isNaN(day) ||
-      year < 1600 ||
-      year > 2100 ||
-      month < 1 ||
-      month > 12 ||
-      day < 1 ||
-      day > 31
-    )
+      Number(year) < 1600 ||
+      Number(year) > 2100 ||
+      Number(month) < 1 ||
+      Number(month) > 12 ||
+      Number(day) < 1 ||
+      Number(day) > 31 ||
+      Number(hour) < 0 ||
+      Number(hour) > 23 ||
+      Number(minute) < 0 ||
+      Number(minute) > 59
+    ) {
       return false;
+    }
     return true;
-  }
-  // Validate hour/minute/second as integers in appropriate ranges
-  function validHour(h) {
-    return validNumber(h, 0, 23);
-  }
-  function validMinuteOrSecond(val) {
-    return validNumber(val, 0, 59);
   }
   function allRequiredFields() {
     return (
       validNumber(latitude, -90, 90) &&
       validNumber(longitude, -180, 180) &&
-      validDateString(date) &&
-      validHour(hour) &&
-      validMinuteOrSecond(minute) &&
-      validMinuteOrSecond(second)
+      validDatetimeLocal(datetimeLocal)
     );
   }
 
@@ -84,23 +74,30 @@ function HousesData() {
     // Validation
     if (!allRequiredFields()) {
       setError(
-        "Enter valid latitude (-90~90), longitude (-180~180), date (1600-2100), and time (hours 0-23, minutes 0-59, seconds 0-59)."
+        "Enter valid latitude (-90~90), longitude (-180~180), and datetime (between years 1600 and 2100)."
       );
       return;
     }
 
     setLoading(true);
 
-    const y = date.substring(0, 4);
-    const m = date.substring(5, 7);
-    const d_ = date.substring(8, 10);
-
-    // Use user-provided time (pad to two digits)
-    const hh = hour.toString().padStart(2, "0");
-    const mm = minute.toString().padStart(2, "0");
-    const ss = second.toString().padStart(2, "0");
-    const dateStr = `${y}-${m}-${d_}`;
-    const timeStr = `${hh}:${mm}:${ss}`;
+    // Parse elements from datetimeLocal (format: "YYYY-MM-DDTHH:mm")
+    // Pass 0 for seconds
+    // API expects date: "YYYY-MM-DD", time: "HH:mm:ss"
+    let year, month, day, hour, minute;
+    let dateStr = "", timeStr = "";
+    const match = datetimeLocal.match(
+      /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/
+    );
+    if (match) {
+      [ , year, month, day, hour, minute ] = match;
+      dateStr = `${year}-${month}-${day}`;
+      timeStr = `${hour}:${minute}:00`;
+    } else {
+      setError("Error: Invalid datetime format. Please pick using the datetime picker.");
+      setLoading(false);
+      return;
+    }
 
     const payload = {
       date: dateStr,
@@ -120,7 +117,6 @@ function HousesData() {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          // 'validateStatus' allows us to get non-200 errors as response.
           validateStatus: () => true
         }
       );
@@ -140,13 +136,11 @@ function HousesData() {
           else if (typeof response.data === "string") serverMsg = ": " + response.data;
         }
         setError(
-          `API error (status ${response.status})${serverMsg ||
-            ""}. Please check your input or try again later.`
+          `API error (status ${response.status})${serverMsg || ""}. Please check your input or try again later.`
         );
         setLoading(false);
         return;
       }
-      // API returns {house1: val, house2: val, ...}
       setHouses(response.data);
       setLoading(false);
     } catch (err) {
@@ -160,7 +154,7 @@ function HousesData() {
     }
   }
 
-  // Render: just lat, long, date fields
+  // Render: lat, long, single datetime-local input
   return (
     <div
       style={{
@@ -184,7 +178,7 @@ function HousesData() {
         }}
       >
         Astrological Houses
-        <span style={{ color: "#9cd6e6" }}> [Lat/Long/Date Only]</span>
+        <span style={{ color: "#9cd6e6" }}> [Lat/Long/DateTime]</span>
       </div>
       <form
         onSubmit={handleSubmit}
@@ -266,7 +260,7 @@ function HousesData() {
             required
           />
         </div>
-        {/* Date */}
+        {/* Datetime-local (date and time) */}
         <div style={{ width: "100%", marginBottom: 1 }}>
           <label
             style={{
@@ -276,100 +270,31 @@ function HousesData() {
               marginBottom: 2,
               display: "block",
             }}
-            htmlFor="date"
+            htmlFor="datetime"
           >
-            Date
+            Date & Time
           </label>
           <input
-            name="date"
-            id="date"
-            type="date"
-            value={date}
+            name="datetime"
+            id="datetime"
+            type="datetime-local"
+            value={datetimeLocal}
             onChange={(e) => {
-              setDate(e.target.value);
+              setDatetimeLocal(e.target.value);
               setInputTouched(true);
               setError(""); setHouses(null);
             }}
-            min="1600-01-01"
-            max="2100-12-31"
+            min="1600-01-01T00:00"
+            max="2100-12-31T23:59"
             style={inputStyle()}
-            aria-label="Date"
+            aria-label="Date and Time"
             required
           />
+          <span style={{ color: "#9cd6e6", fontSize: ".95rem", display: "block", marginTop: 4, fontWeight: 400 }}>
+            <span style={{ color: "#728ab7" }}>Format: </span>YYYY-MM-DD HH:MM (24h)
+          </span>
         </div>
-        {/* Time fields: Hour/Minute/Second */}
-        <div style={{ width: "100%", marginTop: 5, marginBottom: 0 }}>
-          <label
-            style={{
-              color: "#F4D35E",
-              fontWeight: 500,
-              fontSize: ".97rem",
-              marginBottom: 2,
-              display: "block",
-            }}
-            htmlFor="hour"
-          >
-            Time (24h): <span style={{ color: "#9cd6e6", fontWeight: 400, fontSize: ".93rem" }}>Hour:Minute:Second</span>
-          </label>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input
-              name="hour"
-              id="hour"
-              type="number"
-              value={hour}
-              onChange={(e) => {
-                setHour(e.target.value);
-                setInputTouched(true);
-                setError(""); setHouses(null);
-              }}
-              placeholder="HH"
-              style={{ ...inputStyle(), width: 44, textAlign: "center" }}
-              min={0}
-              max={23}
-              autoComplete="off"
-              aria-label="Hour"
-              required
-            />
-            <span style={{ fontSize: "1.2rem", color: "#baf6fa", alignSelf: "center" }}>:</span>
-            <input
-              name="minute"
-              id="minute"
-              type="number"
-              value={minute}
-              onChange={(e) => {
-                setMinute(e.target.value);
-                setInputTouched(true);
-                setError(""); setHouses(null);
-              }}
-              placeholder="MM"
-              style={{ ...inputStyle(), width: 44, textAlign: "center" }}
-              min={0}
-              max={59}
-              autoComplete="off"
-              aria-label="Minute"
-              required
-            />
-            <span style={{ fontSize: "1.2rem", color: "#baf6fa", alignSelf: "center" }}>:</span>
-            <input
-              name="second"
-              id="second"
-              type="number"
-              value={second}
-              onChange={(e) => {
-                setSecond(e.target.value);
-                setInputTouched(true);
-                setError(""); setHouses(null);
-              }}
-              placeholder="SS"
-              style={{ ...inputStyle(), width: 44, textAlign: "center" }}
-              min={0}
-              max={59}
-              autoComplete="off"
-              aria-label="Second"
-              required
-            />
-          </div>
-        </div>
+        {/* Submit button */}
         <button
           type="submit"
           style={{
@@ -422,10 +347,10 @@ function HousesData() {
             paddingTop: 10,
           }}
         >
-          Houses for {latitude}, {longitude} | {date}
+          Houses for {latitude}, {longitude} | {formatDate(datetimeLocal)}
           {" "}
           | <span style={{ color: "#F4D35E" }}>
-            {hour.toString().padStart(2, "0")}:{minute.toString().padStart(2, "0")}:{second.toString().padStart(2, "0")}
+            {formatTime(datetimeLocal)}
           </span>
           <div
             style={{
@@ -473,7 +398,6 @@ function HousesData() {
               textAlign: "center"
             }}
           >
-            {/* Old: Calculated with your current time. */}
             Calculated with your entered date and time.
           </div>
         </div>
@@ -488,7 +412,7 @@ function HousesData() {
             opacity: 0.85,
           }}
         >
-          Enter latitude, longitude, date, and time (hour:minute:second).
+          Enter latitude, longitude, and datetime (YYYY-MM-DD HH:MM).
         </div>
       )}
       {/* No results (if form submitted, but no data) */}
@@ -520,6 +444,22 @@ function inputStyle() {
     outline: "none",
     marginTop: 2,
   };
+}
+
+// Format YYYY-MM-DDTHH:mm → YYYY-MM-DD
+function formatDate(dt) {
+  if (!dt) return "--";
+  const split = dt.split("T");
+  return split.length === 2 ? split[0] : dt;
+}
+// Format YYYY-MM-DDTHH:mm → HH:mm:00
+function formatTime(dt) {
+  if (!dt) return "--:--:--";
+  const split = dt.split("T");
+  if (split.length !== 2) return "--:--:--";
+  const hm = split[1].split(":");
+  if (hm.length !== 2) return "--:--:--";
+  return `${hm[0].padStart(2, "0")}:${hm[1].padStart(2, "0")}:00`;
 }
 
 // PUBLIC_INTERFACE
