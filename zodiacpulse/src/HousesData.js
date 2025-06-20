@@ -1,40 +1,36 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-// PUBLIC_INTERFACE
 /**
- * HousesData - Minimal Astrological Houses Finder.
- * User enters latitude, longitude, and date.
- * The FreeAstrologyAPI western/houses endpoint is called with those details, using the device's current local time.
- * Handles loading, error, and result display.
+ * HousesData - Minimal Astrological Houses Finder (plus Natal Wheel Chart).
+ * User enters latitude, longitude, and date. All data is posted to the FreeAstrologyAPI endpoints.
+ * Now also fetches and displays a natal wheel chart for the same inputs and current time.
+ * Loading and error states for both house data and natal wheel visuals are handled.
+ * The natal chart is shown alongside house data after both have returned.
  */
+// PUBLIC_INTERFACE
 function HousesData() {
-  // Only latitude, longitude, date
+  // Input state for coordinates and date
   const [inputs, setInputs] = useState({
     latitude: "",
     longitude: "",
     date: ""
   });
   const [inputTouched, setInputTouched] = useState(false);
-
+  // State for fetching house data
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [houses, setHouses] = useState(null);
-
-  // Natal wheel chart state
+  // State for fetching natal wheel chart image
   const [natalWheelLoading, setNatalWheelLoading] = useState(false);
   const [natalWheelError, setNatalWheelError] = useState("");
   const [natalWheelUrl, setNatalWheelUrl] = useState("");
-
-  // API KEYS and ENDPOINTS
+  // API credentials/config
   const ASTRO_API_KEY = "0d72cb2fa2ac14bee854efc0aade164f";
   const ASTRO_API_ENDPOINT = "https://json.freeastrologyapi.com/western/houses";
-  // For natal chart wheel PNG; this endpoint returns an image
-  // See: https://json.freeastrologyapi.com/western/wheel
-  // Docs: expects POST {date, time, latitude, longitude, timezone, house_system, chart_type: "natal"}, returns {url:"<img_url>"}
   const ASTRO_WHEEL_ENDPOINT = "https://json.freeastrologyapi.com/western/wheel";
 
-  // Helper: Input change handler
+  // Handle user input changes (reset error/data state as needed)
   function handleInputChange(e) {
     const { name, value } = e.target;
     setInputs((prev) => ({
@@ -54,15 +50,16 @@ function HousesData() {
     const num = Number(val);
     return !isNaN(num) && num >= min && num <= max;
   }
+  // PUBLIC_INTERFACE
   function validDateString(d) {
     if (!d || typeof d !== "string") return false;
     const date = new Date(d);
     if (!(date instanceof Date) || isNaN(date)) return false;
-    // Accepts valid ISO dates in the range 1600–2100
     const year = date.getFullYear();
     if (year < 1600 || year > 2100) return false;
     return true;
   }
+  // PUBLIC_INTERFACE
   function allRequiredFieldsFilled() {
     return ["latitude", "longitude", "date"].every(
       (f) => typeof inputs[f] === "string" && inputs[f].trim() !== ""
@@ -94,24 +91,22 @@ function HousesData() {
     }
 
     setLoading(true);
+    setNatalWheelLoading(true); // Start loading both endpoints in parallel
+    setNatalWheelError("");
+    setNatalWheelUrl("");
 
-    // Get device's current time (not date)
+    // Get device time for the moment of submission (as close to exact as possible)
     const now = new Date();
-    // If a date is entered, combine it with current time (local)
     const year = inputs.date.substring(0, 4);
     const month = inputs.date.substring(5, 7);
     const day = inputs.date.substring(8, 10);
-
     const hours = now.getHours().toString().padStart(2, "0");
     const minutes = now.getMinutes().toString().padStart(2, "0");
     const seconds = now.getSeconds().toString().padStart(2, "0");
-
     const dateStr = `${year}-${month}-${day}`;
     const timeStr = `${hours}:${minutes}:${seconds}`;
 
-    // Use "auto" for timezone (let API interpret it), or can fallback to UTC offset
-    // FreeAstrologyAPI requires IANA, but we don't collect it; attempt to use browser offset as fallback
-    // Prefer "UTC" in case of ambiguity
+    // Determine timezone (IANA name, fallback to UTC)
     function getBrowserTimezone() {
       try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -121,7 +116,7 @@ function HousesData() {
     }
     const timezone = getBrowserTimezone();
 
-    // Compose API payload
+    // Compose body/payload for both endpoints (one extra param for wheel)
     const payload = {
       date: dateStr,
       time: timeStr,
@@ -131,69 +126,75 @@ function HousesData() {
       house_system: "placidus"
     };
 
-    try {
-      const resp = await axios.post(
-        ASTRO_API_ENDPOINT,
-        payload,
-        {
-          headers: {
-            Authorization: `Token ${ASTRO_API_KEY}`,
-            "Content-Type": "application/json"
-          }
+    // Run house data and natal wheel requests in parallel for speed
+    let houseError = "";
+    let newHouses = null;
+    let natalError = "";
+    let natalUrl = "";
+
+    const housePromise = axios.post(
+      ASTRO_API_ENDPOINT,
+      payload,
+      {
+        headers: {
+          Authorization: `Token ${ASTRO_API_KEY}`,
+          "Content-Type": "application/json"
         }
-      );
+      }
+    ).then((resp) => {
       if (resp && resp.data) {
-        setHouses(resp.data);
-        setError("");
+        newHouses = resp.data;
+        houseError = "";
       } else {
-        setError("No data received from astrology API.");
+        houseError = "No data received from astrology API.";
       }
-    } catch (err) {
-      setError(
-        "Failed to fetch astrological houses for these coordinates and date. Please try again later."
-      );
-      setHouses(null);
-    } finally {
-      setLoading(false);
-    }
-    // Fetch natal wheel chart image
-    setNatalWheelLoading(true);
-    setNatalWheelError("");
-    setNatalWheelUrl("");
-    try {
-      const wheelResp = await axios.post(
-        ASTRO_WHEEL_ENDPOINT,
-        {
-          ...payload,
-          chart_type: "natal"
-        },
-        {
-          headers: {
-            Authorization: `Token ${ASTRO_API_KEY}`,
-            "Content-Type": "application/json"
-          }
+    }).catch(() => {
+      houseError = "Failed to fetch astrological houses for these coordinates and date. Please try again later.";
+    });
+
+    const natalPromise = axios.post(
+      ASTRO_WHEEL_ENDPOINT,
+      { ...payload, chart_type: "natal" },
+      {
+        headers: {
+          Authorization: `Token ${ASTRO_API_KEY}`,
+          "Content-Type": "application/json"
         }
-      );
-      // API returns {url: "image_url"}, but fallback to raw blob if not.
-      if (wheelResp && wheelResp.data) {
-        if (wheelResp.data.url) {
-          setNatalWheelUrl(wheelResp.data.url);
-        } else if (
-          wheelResp.data.image // sometimes the API returns base64 string
-        ) {
-          setNatalWheelUrl("data:image/png;base64," + wheelResp.data.image);
+      }
+    ).then((resp) => {
+      if (resp && resp.data) {
+        if (resp.data.url) {
+          natalUrl = resp.data.url;
+        } else if (resp.data.image) {
+          natalUrl = "data:image/png;base64," + resp.data.image;
         } else {
-          setNatalWheelError("No wheel chart image returned from astrology API.");
+          natalError = "No natal wheel chart image returned from astrology API.";
         }
       } else {
-        setNatalWheelError("No wheel chart data received from astrology API.");
+        natalError = "No natal wheel chart data received from astrology API.";
       }
-    } catch (err) {
-      setNatalWheelError(
-        "Failed to fetch natal wheel chart. Please try again later."
-      );
-    } finally {
-      setNatalWheelLoading(false);
+    }).catch(() => {
+      natalError = "Failed to fetch natal wheel chart. Please try again later.";
+    });
+
+    // Wait for both in parallel
+    await Promise.all([housePromise, natalPromise]);
+    setLoading(false);
+    setNatalWheelLoading(false);
+
+    if (houseError) {
+      setError(houseError);
+      setHouses(null);
+    } else {
+      setHouses(newHouses);
+      setError("");
+    }
+    if (natalError) {
+      setNatalWheelError(natalError);
+      setNatalWheelUrl("");
+    } else {
+      setNatalWheelError("");
+      setNatalWheelUrl(natalUrl);
     }
   }
 
